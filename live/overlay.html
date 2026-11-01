@@ -409,6 +409,7 @@ function connect(){
       case 'join': if (m.cap!==cap) layout(m.cap); addVisitor(m.v); updateCount(); break;
       case 'leave': removeVisitor(m.id); updateCount(); break;
       case 'incense': queueIncense(m.id); break;
+      case 'hint': { const v=visitors.get(m.id); if(v) v.bubble={text:m.text, emotes:[], hint:true, until:performance.now()+7000}; } break;
       case 'xam': { const v=visitors.get(m.id); if (v?.seat) queueIncense(m.id,'xam',true,m); else showXam(m); } break;
       case 'skin': { const v=visitors.get(m.id); if(v){ v.skin=m.skin; v.glow=.8; if(v.state!=='sit'){ v.state='sit'; v.frame=7; } } } break;
       case 'chat': { const v=visitors.get(m.id); if(v){ v.bubble={text:m.text||'', emotes:m.emotes||[], until:performance.now()+Math.min(12000, 5000+(m.text||'').length*60)}; v.bow=.6; } } break;
@@ -516,9 +517,9 @@ function bubbleLayout(b, fs){
 function bubble(b,x,y,s){
   const fs=Math.max(18,Math.round(26*s/.4)); ctx.font=`500 ${fs}px "Be Vietnam Pro","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
   const { em, lines, widths, w, lh } = bubbleLayout(b, fs), h=lines.length*lh+fs*.5;
-  ctx.fillStyle='rgba(255,247,230,.95)'; rr(x-w/2,y-h,w,h,fs*.5); ctx.fill();
+  ctx.fillStyle=b.hint?'rgba(110,32,12,.95)':'rgba(255,247,230,.95)'; rr(x-w/2,y-h,w,h,fs*.5); ctx.fill();   // hint: the hall talking, not the viewer
   ctx.beginPath(); ctx.moveTo(x-8,y); ctx.lineTo(x+8,y); ctx.lineTo(x,y+10); ctx.fill();
-  ctx.fillStyle='#3a1a08'; ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillStyle=b.hint?'#ffd98a':'#3a1a08'; ctx.textAlign='left'; ctx.textBaseline='middle';
   lines.forEach((line,i)=>{
     let cx=x-widths[i]/2; const cy=y-h+fs*.25+lh*(i+.5);
     for (const tk of line){

@@ -93,10 +93,10 @@ function wantsIncense(id, text){
 }
 
 // "xin xăm" draws a fortune stick (live/xam.mjs), but only for viewers who gave a gift: each gift is one draw, at most
-// 3 kept. Asking first and giving within 3 minutes draws right away with that gift. Asking without a gift shows a
-// reminder on screen (at most every 30 s, so a chat full of "xin xăm" does not flood it).
+// 3 kept. Asking first and giving within 3 minutes draws right away with that gift. Asking without a gift puts a small
+// reminder bubble over that viewer's head only (no banner, no bell: the stream is shared by everyone), once per 30 s each.
 const XAM_RE = /xin\s*x[aă]m|r[uú]t\s*x[aă]m|gieo\s*qu[eẻ]/;
-const xamCredits = new Map(), xamAsked = new Map(); let xamHintAt = 0;
+const xamCredits = new Map(), xamAsked = new Map();
 const wantsXam = text => XAM_RE.test(String(text).toLowerCase().normalize('NFC'));
 function sendXam(v){
   const no = Math.floor(Math.random() * XAM.length), x = XAM[no];
@@ -107,8 +107,9 @@ function onXamAsk(v){
   if (!settings.xamOn) return;
   const n = xamCredits.get(v.id) || 0;
   if (n > 0){ xamCredits.set(v.id, n - 1); return sendXam(v); }
+  const before = xamAsked.get(v.id) || 0;
   xamAsked.set(v.id, Date.now()); if (xamAsked.size > 5000) xamAsked.clear();
-  if (Date.now() - xamHintAt > 30_000){ xamHintAt = Date.now(); broadcast({ t:'notice', text: `🎋 ${v.name} muốn xin xăm: tặng một món quà (một bông hoa cũng được) là được xin một quẻ.` }); }
+  if (Date.now() - before > 30_000) broadcast({ t:'hint', id: v.id, text: '🎋 Tặng quà để được xin xăm nhé' });
 }
 function xamOnGift(v){
   if (!settings.xamOn) return;
