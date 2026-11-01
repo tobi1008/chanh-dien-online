@@ -109,9 +109,12 @@ function seat(id, name, opts = {}){
 }
 
 /* ------------------------------------------------------------- events in */
-function onChat(id, name, text, avatar){
+// emotes: TikTok's own sticker icons, sent apart from the text as [{ i: position in the text, url }]
+function onChat(id, name, text, avatar, emotes = []){
   if (!id || blocked.has(id)) return;
-  text = String(text || '').slice(0, 120);
+  text = String(text || '').slice(0, 200);
+  emotes = emotes.filter(e => /^https:\/\//.test(e.url)).slice(0, 8).map(e => ({ i: clamp(e.i, 0, text.length), url: e.url.slice(0, 1000) }));
+  if (!text.trim() && !emotes.length) return;
   let dirty = false;
   if (settings.filterOn){
     const r = wordFilter.check(text);
@@ -131,8 +134,8 @@ function onChat(id, name, text, avatar){
   const { v, isNew } = seat(id, name, { avatar, skin: want || undefined });
   if (!v) return;
   if (!isNew && want && want !== v.skin){ v.skin = want; broadcast({ t:'skin', id, skin: want }); }
-  if (!dirty){ v.lastText = text; v.lastTextAt = Date.now(); }    // a masked comment is never read aloud as a prayer
-  broadcast({ t:'chat', id, name: v.name, text });
+  if (!dirty && text.trim()){ v.lastText = text; v.lastTextAt = Date.now(); }    // a masked comment is never read aloud as a prayer
+  broadcast({ t:'chat', id, name: v.name, text, emotes: dirty ? [] : emotes });
   if (!dirty && wantsIncense(id, text)){ broadcast({ t:'incense', id, name: v.name }); addLog(`🙏 ${v.name} lên thắp nhang`); }
 }
 
@@ -201,7 +204,9 @@ async function connectTikTok(uniqueId, isRetry){
     const av = u => pic(u?.avatarThumb) || pic(u?.avatarMedium) || pic(u?.profilePicture) || '';
     const uid = u => u?.displayId || u?.uniqueId || (u?.id ? String(u.id) : '') || (u?.userId ? String(u.userId) : '');
     const nm = u => u?.nickname || u?.displayId || u?.uniqueId || 'ẩn danh';
-    conn.on(WebcastEvent.CHAT, d => onChat(uid(d.user), nm(d.user), d.content ?? d.comment, av(d.user)));
+    const emo = list => (list || []).map(e => ({ i: +(e.index ?? e.placeInComment) || 0, url: pic((e.emote || e).image) })).filter(e => e.url);
+    conn.on(WebcastEvent.CHAT, d => onChat(uid(d.user), nm(d.user), d.content ?? d.comment, av(d.user), emo(d.emotes)));
+    conn.on(WebcastEvent.EMOTE, d => onChat(uid(d.user), nm(d.user), '', av(d.user), emo(d.emoteList)));          // sticker-only comment
     conn.on(WebcastEvent.GIFT, d => {
       const g = d.gift || {}, old = d.giftDetails || {}, ext = d.extendedGiftInfo || {};
       const combo = g.combo || (g.type ?? old.giftType ?? ext.type) === 1;

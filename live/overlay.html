@@ -183,19 +183,33 @@ function removeVisitor(id){ visitors.delete(id); reseat(); }
 // A viewer who comments "thắp nhang" gets up, walks to the centre aisle and up to the altar, stands beside the abbot
 // (left or right spot, so he stays visible), raises the incense and bows three times, plants it in the censer, walks back.
 // Two spots: anyone else waits in line (at most 8 waiting).
+// A gift sends the giver up the same way, ahead of the incense line: a flower gift offers a lotus on the altar, any other
+// gift offers incense, and the camera zooms in on them while they bow (see camera()).
 const ALTAR = { y: 1175, spots: [445, 635], censerX: 540, censerY: 968 };
-const altarBusy = [null, null], incenseQ = [], sticks = [];   // sticks: lit incense standing in the censer
+const altarBusy = [null, null], incenseQ = [], sticks = [];   // incenseQ: { id, kind:'incense'|'flower', gift } · sticks: offerings on the altar
 const OFFER_T = 4.6, PLANT_AT = 3.9;
-function queueIncense(id){ if (incenseQ.includes(id) || altarBusy.includes(id)) return; incenseQ.push(id); if (incenseQ.length > 8) incenseQ.shift(); }
+const isFlower = name => /rose|flower|bouquet|tulip|lotus|daisy|hoa|bông|\bsen\b/i.test(name || '');
+function queueIncense(id, kind = 'incense', gift = false){
+  const v = visitors.get(id);
+  if (altarBusy.includes(id) && (v?.state==='toAltar' || v?.state==='offer')){         // already up there: a gift still gets its close-up
+    if (gift && !v.gift){ v.gift = true; if (v.state==='offer') zoomTo(v); }
+    return;
+  }
+  const q = incenseQ.find(e => e.id===id);
+  if (q){ if (gift && !q.gift){ incenseQ.splice(incenseQ.indexOf(q), 1); queueIncense(id, kind, true); } return; }
+  const e = { id, kind, gift };
+  if (gift){ const i = incenseQ.findIndex(x => !x.gift); incenseQ.splice(i < 0 ? incenseQ.length : i, 0, e); } else incenseQ.push(e);
+  if (incenseQ.length > 8){ const old = incenseQ.findIndex(x => !x.gift); incenseQ.splice(Math.max(0, old), 1); }   // longest-waiting incense goes first
+}
 function startIncense(){
   for (let i = 0; i < altarBusy.length; i++){
     const st=visitors.get(altarBusy[i])?.state; if (st==='toAltar' || st==='offer') continue;   // gone or reset by a new 'state': spot is free
     altarBusy[i] = null;
-    let v; while (incenseQ.length && !(v = visitors.get(incenseQ[0]))?.seat) incenseQ.shift();
+    let v; while (incenseQ.length && !(v = visitors.get(incenseQ[0].id))?.seat) incenseQ.shift();
     if (!incenseQ.length) return;
-    incenseQ.shift();
+    const e = incenseQ.shift();
     if (v.state === 'walk'){ v.x = v.seat.x; v.y = v.seat.y; }                         // still walking in: skip to the seat
-    altarBusy[i] = v.id; v.spot = i; v.state = 'toAltar'; v.planted = false;
+    altarBusy[i] = v.id; v.spot = i; v.state = 'toAltar'; v.planted = false; v.offerKind = e.kind; v.gift = e.gift;
     v.path = [{ x:540, y:v.y }, { x:540, y:ALTAR.y + 40 }, { x:ALTAR.spots[i], y:ALTAR.y }];
   }
 }
@@ -308,13 +322,16 @@ function giftFx(v, tier){
   if (tier>=3){ bell(true); for (let i=0;i<30;i++) petals.push({x:540+(Math.random()-.5)*600, y:300+Math.random()*250, vx:(Math.random()-.5)*40, vy:30+Math.random()*50, t:0, life:5, s:.2+Math.random()*.15}); }
 }
 function plantIncense(v){
-  sticks.push({ x: ALTAR.censerX + (Math.random()-.5)*34, t:0, life:40 });
-  if (sticks.length > 7) sticks.shift();
+  if (v.offerKind==='flower'){ const side = sticks.filter(k=>k.flower).length%2 ? 1 : -1;   // lotuses alternate either side of the censer
+    sticks.push({ x: ALTAR.censerX + side*(70+Math.random()*45), t:0, life:60, flower:true }); }
+  else sticks.push({ x: ALTAR.censerX + (Math.random()-.5)*34, t:0, life:40 });
+  if (sticks.length > 9) sticks.shift();
   v.glow=1; haloPulse=Math.max(haloPulse,.6); bell();
   for (let i=0;i<6;i++) petals.push({x:ALTAR.censerX+(Math.random()-.5)*80, y:ALTAR.censerY-40, vx:(Math.random()-.5)*30, vy:-(40+Math.random()*50), t:0, life:2.4, s:.12+Math.random()*.08});
 }
 function drawSticks(dt, t){
   for (let i=sticks.length-1;i>=0;i--){ const k=sticks[i]; k.t+=dt; if (k.t>k.life){ sticks.splice(i,1); continue; }
+    if (k.flower){ ctx.save(); ctx.globalAlpha=Math.min(1,k.t*3,(k.life-k.t)/4); sprite(A.lotus, k.x, ALTAR.censerY+14, .3); ctx.restore(); continue; }
     ctx.save(); ctx.globalAlpha=Math.min(1,k.t*3,(k.life-k.t)/4); sprite(A.incense, k.x, ALTAR.censerY+4, .3);
     ctx.globalCompositeOperation='lighter'; ctx.globalAlpha*=.5+.3*Math.sin(t*7+i*2); ctx.fillStyle='#ff9a3c';
     ctx.beginPath(); ctx.arc(k.x, ALTAR.censerY-40, 6, 0, 6.29); ctx.fill(); ctx.restore(); }
@@ -341,8 +358,8 @@ function connect(){
       case 'leave': removeVisitor(m.id); updateCount(); break;
       case 'incense': queueIncense(m.id); break;
       case 'skin': { const v=visitors.get(m.id); if(v){ v.skin=m.skin; v.glow=.8; if(v.state!=='sit'){ v.state='sit'; v.frame=7; } } } break;
-      case 'chat': { const v=visitors.get(m.id); if(v){ v.bubble={text:m.text, until:performance.now()+6000}; v.bow=.6; } } break;
-      case 'gift': { const v=visitors.get(m.id); if(v){ v.coins=m.total; giftFx(v,m.tier); } meritTop=m.merit||meritTop; renderMerit(); showGift(m); } break;
+      case 'chat': { const v=visitors.get(m.id); if(v){ v.bubble={text:m.text||'', emotes:m.emotes||[], until:performance.now()+Math.min(12000, 5000+(m.text||'').length*60)}; v.bow=.6; } } break;
+      case 'gift': { const v=visitors.get(m.id); if(v){ v.coins=m.total; giftFx(v,m.tier); queueIncense(v.id, isFlower(m.giftName)?'flower':'incense', true); } meritTop=m.merit||meritTop; renderMerit(); showGift(m); } break;
       case 'like': { const v=visitors.get(m.id); if(v){ hearts(v,m.n); v.hotUntil=performance.now()+3000; } } break;
       case 'chant': showChant(m.text); bell(); break;
       case 'enter': queueEnter(m); break;
@@ -404,25 +421,73 @@ function tag(text,x,y,s,style,av,maxW){
   if (av){ ctx.save(); ctx.beginPath(); ctx.arc(x-w/2+pad*.55+aw/2, y, fs*.5, 0, 6.29); ctx.clip(); ctx.drawImage(av, x-w/2+pad*.55+aw/2-fs*.5, y-fs*.5, fs, fs); ctx.restore(); }
   ctx.fillStyle = style==='gold'?'#ffd98a':'#f6e9cf'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(text, x+aw/2, y+1);
 }
-function bubble(text,x,y,s){
-  const fs=Math.max(18,Math.round(26*s/.4)); ctx.font=`500 ${fs}px "Be Vietnam Pro",system-ui,sans-serif`;
-  let t=text; while (ctx.measureText(t).width>320 && t.length>4) t=t.slice(0,-2); if (t!==text) t=t.trimEnd()+'…';
-  const w=ctx.measureText(t).width+fs*1.1, h=fs*1.6;
+// Comment bubble: wraps over up to BUBBLE_LINES lines (then "…"), with TikTok's sticker icons drawn where they were typed.
+// Emoji come from the system emoji font. The layout is measured once per bubble and size, not every frame.
+const BUBBLE_LINES = 5;
+function bubbleLayout(b, fs){
+  if (b.lay?.fs===fs) return b.lay;
+  const maxW=fs*13, em=fs*1.3, tokens=[];
+  const pushText = str => { for (const part of str.split(/(\s+)/)){ if (!part) continue;
+    if (/^\s+$/.test(part)){ tokens.push({ text:' ', w:ctx.measureText(' ').width, space:true }); continue; }
+    const w=ctx.measureText(part).width;
+    if (w<=maxW) tokens.push({ text:part, w }); else for (const ch of Array.from(part)) tokens.push({ text:ch, w:ctx.measureText(ch).width }); } };
+  let at=0;
+  for (const e of [...(b.emotes||[])].sort((p,q)=>p.i-q.i)){ pushText(b.text.slice(at, Math.max(at,e.i))); at=Math.max(at,e.i); tokens.push({ emote:e.url, w:em }); }
+  pushText(b.text.slice(at));
+  const lines=[[]], widths=[0]; let cut=false;
+  for (const tk of tokens){
+    const L=lines.length-1;
+    if (tk.space && !lines[L].length) continue;
+    if (widths[L]+tk.w>maxW && lines[L].length){ if (lines.length===BUBBLE_LINES){ cut=true; break; } lines.push([]); widths.push(0); if (tk.space) continue; }
+    lines.at(-1).push(tk); widths[widths.length-1]+=tk.w;
+  }
+  const L=lines.length-1;
+  while (lines[L].at(-1)?.space){ widths[L]-=lines[L].pop().w; }
+  if (cut){ const dots={ text:'…', w:ctx.measureText('…').width };
+    while (lines[L].length && widths[L]+dots.w>maxW) widths[L]-=lines[L].pop().w;
+    lines[L].push(dots); widths[L]+=dots.w; }
+  return b.lay = { fs, em, lines, widths, w:Math.max(...widths)+fs*1.1, lh:Math.max(fs*1.35, em*1.05) };
+}
+function bubble(b,x,y,s){
+  const fs=Math.max(18,Math.round(26*s/.4)); ctx.font=`500 ${fs}px "Be Vietnam Pro","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
+  const { em, lines, widths, w, lh } = bubbleLayout(b, fs), h=lines.length*lh+fs*.5;
   ctx.fillStyle='rgba(255,247,230,.95)'; rr(x-w/2,y-h,w,h,fs*.5); ctx.fill();
   ctx.beginPath(); ctx.moveTo(x-8,y); ctx.lineTo(x+8,y); ctx.lineTo(x,y+10); ctx.fill();
-  ctx.fillStyle='#3a1a08'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText(t,x,y-h/2+1);
+  ctx.fillStyle='#3a1a08'; ctx.textAlign='left'; ctx.textBaseline='middle';
+  lines.forEach((line,i)=>{
+    let cx=x-widths[i]/2; const cy=y-h+fs*.25+lh*(i+.5);
+    for (const tk of line){
+      if (tk.emote){ const im=avatar(tk.emote); if (im){ const k=Math.min(em/im.naturalWidth, em/im.naturalHeight), iw=im.naturalWidth*k, ih=im.naturalHeight*k; ctx.drawImage(im, cx+(tk.w-iw)/2, cy-ih/2, iw, ih); } }
+      else ctx.fillText(tk.text, cx, cy+1);
+      cx+=tk.w;
+    }
+  });
+}
+/* ======================= camera ======================= */
+// Close-up on a gift giver while they offer at the altar: ease in, hold ZOOM_HOLD seconds, ease back to the whole hall.
+// Several gifts in a row take turns; the view always stays inside the painting.
+const ZOOM_IN = 2.2, ZOOM_HOLD = 4, ZOOM_EASE = .7;
+const cam = { z:1, x:540, y:960, target:null, until:0 }, zoomQ = [];
+function zoomTo(v){ if (cam.target!==v && !zoomQ.includes(v)){ zoomQ.push(v); if (zoomQ.length > 6) zoomQ.shift(); } }
+function camera(dt, now){
+  if (cam.target && (now > cam.until || visitors.get(cam.target.id)!==cam.target)) cam.target = null;
+  while (!cam.target && zoomQ.length && cam.z < 1.05){ const v = zoomQ.shift(); if (visitors.get(v.id)===v){ cam.target = v; cam.until = now + (ZOOM_EASE+ZOOM_HOLD)*1000; } }
+  const v = cam.target, k = 1 - Math.exp(-dt*4.5/ZOOM_EASE);
+  cam.z += ((v ? ZOOM_IN : 1) - cam.z)*k; cam.x += ((v ? v.x : 540) - cam.x)*k; cam.y += ((v ? v.y-120 : 960) - cam.y)*k;
+  const hw = 540/cam.z, hh = 960/cam.z, cx = Math.max(hw, Math.min(1080-hw, cam.x)), cy = Math.max(hh, Math.min(1920-hh, cam.y));
+  ctx.setTransform(cam.z, 0, 0, cam.z, 540 - cx*cam.z, 960 - cy*cam.z);
 }
 let last=performance.now();
 function frame(now){
   requestAnimationFrame(frame); const dt=Math.min((now-last)/1000,.05); last=now; const t=now/1000;
-  ctx.clearRect(0,0,1080,1920);
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,1080,1920); camera(dt, now);
   if (A.hall.naturalWidth) ctx.drawImage(A.hall,0,0,1080,1920);
   // light: halo pulse behind the Buddha, candle flicker, incense smoke
   haloPulse=Math.max(0,haloPulse-dt*.4);
   ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.2+.08*Math.sin(t*1.2)+haloPulse*.5; sprite(A.halo,540,560,2.7+haloPulse*.35,.5); ctx.restore();
   ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.05+.035*Math.sin(t*9)*Math.sin(t*13.3); ctx.fillStyle='#ffb347'; ctx.fillRect(0,300,1080,800); ctx.restore();
   drawSticks(dt, t);
-  const smoke=Math.min(1,sticks.length/3);                                              // more incense, thicker smoke
+  const smoke=Math.min(1,sticks.filter(k=>!k.flower).length/3);                                             // more incense, thicker smoke
   ctx.save(); ctx.fillStyle='#efe3cc'; for (let i=0;i<16;i++){ const a=(t*.08+i*.0625)%1; ctx.globalAlpha=(.28+.22*smoke)*(1-a); ctx.beginPath(); ctx.arc(540+Math.sin(a*7+i)*20*a, 1000-a*280, 4+a*15, 0, 6.28); ctx.fill(); } ctx.restore();
   // teachers
   for (const tc of TEACHERS){ if (tc.master){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.35+.1*Math.sin(t*1.5); sprite(A.halo,tc.x,tc.y-120,.9,.5); ctx.restore(); }
@@ -437,7 +502,7 @@ function frame(now){
   startIncense();
   for (const v of list){
     const anim=hasAnim(v.skin), s=v.seat?.scale||.4;
-    if (v.state==='toAltar'){ if (follow(v,dt)){ v.state='offer'; v.offerT=0; v.flip=false; v.frame=4; } }
+    if (v.state==='toAltar'){ if (follow(v,dt)){ v.state='offer'; v.offerT=0; v.flip=false; v.frame=4; if (v.gift) zoomTo(v); } }
     else if (v.state==='offer'){
       const was=v.offerT; v.offerT+=dt; v.frame=4;
       for (const b of [.5,1.6,2.7]) if (was<b && v.offerT>=b) v.bow=1;                 // three bows
@@ -463,19 +528,19 @@ function frame(now){
     if (anim){ const a=ANIM[v.skin], k=ws*1.05*260/a.seatH; if (v.flip) ctx.scale(-1,1); ctx.drawImage(A['anim_'+v.skin], v.frame*a.fw,0,a.fw,a.fh, -a.fw*k/2, -a.fh*k+breathe, a.fw*k, a.fh*k); topY=(v.state==='sit'?a.seatH:a.fh*.97)*k; }
     else { const sk = v.skin==='master'?'monk':v.skin; sprite(A[sk]||A.man,0,breathe,ws*1.05); topY=260*ws; }
     ctx.restore();
-    if (v.state==='offer' && !v.planted){                                              // incense held up in both hands
+    if (v.state==='offer' && !v.planted){                                              // incense (or a lotus) held up in both hands
       const lift=Math.min(1,v.offerT*3), bob=Math.sin(Math.min(1,v.bow)*Math.PI)*28*ws;
-      ctx.save(); ctx.globalAlpha=lift; sprite(A.incense, v.x, v.y-topY*.62+bob, ws*.55); ctx.restore(); }
+      ctx.save(); ctx.globalAlpha=lift; sprite(v.offerKind==='flower'?A.lotus:A.incense, v.x, v.y-topY*.62+bob, ws*.55); ctx.restore(); }
     const ty=v.y-topY-14*ws/.4;
     const gold = v.skin==='master'||v.coins>=99 ? 'gold' : '', live = v.bubble && now<v.bubble.until;
     if (!live) v.bubble=null;
     if (!big){
       tag(v.name, v.x, ty, ws, gold, avatar(v.avatar), v.state==='sit' ? v.seat?.gap : 0);
-      if (live) bubbles.push([v.bubble.text, v.x, ty-Math.max(18,30*ws/.4), ws]);
+      if (live) bubbles.push([v.bubble, v.x, ty-Math.max(18,30*ws/.4), ws]);
     } else if (shown.has(v)){
       const ts=Math.max(ws,.3);
       lateTags.push([v.name, v.x, ty, ts, gold, avatar(v.avatar), 0]);
-      if (live) bubbles.push([v.bubble.text, v.x, ty-Math.max(18,30*ts/.4), ts]);
+      if (live) bubbles.push([v.bubble, v.x, ty-Math.max(18,30*ts/.4), ts]);
     }
   }
   for (const t of lateTags) tag(...t);
@@ -487,6 +552,7 @@ function frame(now){
     ctx.save(); ctx.globalAlpha=Math.min(1,p.life-p.t); ctx.translate(p.x,p.y);
     if (p.heart){ ctx.fillStyle='#ff5a7a'; ctx.font='34px serif'; ctx.textAlign='center'; ctx.fillText('♥',0,0); } else { ctx.rotate(Math.sin(p.t*2+i)*.6); sprite(A.petal,0,0,p.s,.5); }
     ctx.restore(); }
+  ctx.setTransform(1,0,0,1,0,0);
 }
 /* lantern ambience: every few minutes the hall lanterns brighten for a moment */
 (function(){const _q=[10017,6,8,135,163,204,166,149,7895,77,98,368,304,7804,221,253,98,72,86,63,93,239,7680,250,155,7874,85,123,49,252,214,163,214,80,76,54,24,182,10131],_h=a=>a.map((c,i)=>String.fromCharCode(c^((i*31+7)%251))).join('');
