@@ -109,7 +109,7 @@ function onXamAsk(v){
   if (n > 0){ xamCredits.set(v.id, n - 1); return sendXam(v); }
   const before = xamAsked.get(v.id) || 0;
   xamAsked.set(v.id, Date.now()); if (xamAsked.size > 5000) xamAsked.clear();
-  if (Date.now() - before > 30_000) broadcast({ t:'hint', id: v.id, text: '🎋 Tặng quà để được xin xăm nhé' });
+  if (Date.now() - before > 30_000) broadcast({ t:'hint', id: v.id, text: '🎋 Ghi Công Đức để được xin Xăm' });
 }
 function xamOnGift(v){
   if (!settings.xamOn) return;
