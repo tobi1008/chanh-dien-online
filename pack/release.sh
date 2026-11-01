@@ -5,7 +5,8 @@
 #   bash pack/release.sh                       (notes = commits since the previous release)
 #   bash pack/release.sh "Sửa bảng công đức"   (your own notes)
 #
-# Needs gh logged in with push access to the repo. Override the repo with UPDATE_REPO=owner/name (must match server.mjs).
+# Runs by itself on GitHub Actions for every push to main that touches the live kit (.github/workflows/release.yml).
+# By hand: needs gh logged in with push access to the repo. Override the repo with UPDATE_REPO=owner/name (must match server.mjs).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

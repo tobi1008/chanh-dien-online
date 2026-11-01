@@ -34,6 +34,12 @@ bash pack/build-windows.sh
 
 Tạo `dist/ChanhDienLive-windows-x64.zip` (khoảng 44 MB): có sẵn `node.exe` (Node 24 LTS, kiểm tra SHA-256 với nodejs.org), server, thư viện và `Mo-Chanh-Dien.bat`. Trên máy Windows 10/11 chỉ cần giải nén, bấm đúp `Mo-Chanh-Dien.bat`, làm theo `HUONG-DAN.txt`.
 
+### Phát hành bản cập nhật
+
+Mỗi lần push lên `main` có sửa `live/`, `assets/` hoặc `pack/`, GitHub Actions (`.github/workflows/release.yml`) tự chạy `pack/release.sh`: đóng gói zip và tạo GitHub Release mới. Máy Windows đang dùng bản zip vào bảng điều khiển → **Kiểm tra cập nhật** → **Cập nhật ngay**. Mất khoảng 2–3 phút sau khi push, xem tiến độ ở tab *Actions* trên GitHub.
+
+Sửa `index.html` (bản web) hay `README.md` thì không tạo Release, vì zip không chứa các file đó. Muốn phát hành tay: tab *Actions* → *Release Windows* → *Run workflow*, hoặc chạy `bash pack/release.sh` trên máy có `gh` đã đăng nhập.
+
 ### Người xem làm được gì
 
 - **Vào xem live**: được chào bằng ảnh đại diện + tên và ngồi xuống bồ đoàn. Chỉ có người xem thật, không có bot hay người mẫu.

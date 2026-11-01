@@ -1,0 +1,40 @@
+# Push to main that touches the live kit → build the Windows zip and publish a GitHub Release (pack/release.sh).
+# Installed copies then see it under "Kiểm tra cập nhật" in the control panel.
+name: Release Windows
+
+on:
+  push:
+    branches: [main]
+    paths: ['live/**', 'assets/**', 'pack/**', '.github/workflows/release.yml']
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: 'Ghi chú phát hành (bỏ trống = danh sách commit)'
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Ho_Chi_Minh          # version = local date+time; must keep growing past releases made by hand in VN time
+      GH_TOKEN: ${{ github.token }}
+      UPDATE_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0            # release notes = commits since the previous release tag
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build and publish
+        env:
+          NOTES: ${{ inputs.notes }}
+        run: |
+          if [ -n "$NOTES" ]; then bash pack/release.sh "$NOTES"; else bash pack/release.sh; fi
