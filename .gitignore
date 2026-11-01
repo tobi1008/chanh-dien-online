@@ -6,5 +6,6 @@ node_modules/
 Thumbs.db
 live/config.json
 live/merit.json
+live/session.json
 dist/
 pack/.cache/

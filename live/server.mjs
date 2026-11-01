@@ -324,10 +324,32 @@ async function installUpdate(){
     for (const f of ['HUONG-DAN.txt', 'LICENSE.txt', 'THIRD-PARTY-LICENSES.txt']) if (fs.existsSync(path.join(src, f))) fs.copyFileSync(path.join(src, f), path.join(ROOT, f));
     addLog(`✅ Đã cập nhật lên bản ${latest.version}, đang khởi động lại…`);
     clearTimeout(meritSaveTimer); fs.writeFileSync(MERIT_FILE, JSON.stringify(Object.fromEntries(merit)));
+    saveSession();
     setTimeout(() => process.exit(42), 500);
   } catch (e) {
     updating = false; addLog('❌ Cập nhật thất bại: ' + e.message); updateState({ error: 'Cập nhật thất bại: ' + e.message });
   } finally { fs.rm(tmp, { recursive: true, force: true }, () => {}); }
+}
+
+// An update restarts the server mid-live: the seated viewers and the TikTok username are written to live/session.json
+// just before, and the new server (started by Mo-Chanh-Dien.bat with CD_RESTARTED=1) seats them again and reconnects.
+// A normal start ignores the file, so yesterday's crowd never reappears.
+const SESSION_FILE = path.join(__dirname, 'session.json');
+function saveSession(){
+  try { fs.writeFileSync(SESSION_FILE, JSON.stringify({ savedAt: Date.now(), tiktok: wantTikTok, viewers: [...viewers.values()] })); }
+  catch (e) { addLog('Không lưu được danh sách bồ đoàn: ' + e.message); }
+}
+function restoreSession(){
+  let s; try { s = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8')); fs.rmSync(SESSION_FILE, { force: true }); } catch { return; }
+  if (!process.env.CD_RESTARTED || !(Date.now() - s.savedAt < 10 * 60_000)) return;
+  for (const p of Array.isArray(s.viewers) ? s.viewers.slice(0, 5000) : []){
+    const id = String(p?.id || '').slice(0, 100); if (!id || blocked.has(id) || viewers.has(id)) continue;
+    viewers.set(id, { id, name: cleanName(p.name, id), skin: String(p.skin || DEFAULT_SKINS[0]).slice(0, 20), avatar: String(p.avatar || '').slice(0, 1000),
+      coins: merit.get(id)?.coins || 0, joinedAt: +p.joinedAt || Date.now(), lastAt: +p.lastAt || Date.now(),
+      lastText: String(p.lastText || '').slice(0, 200), lastTextAt: +p.lastTextAt || 0 });
+  }
+  if (viewers.size){ broadcast(snapshot()); addLog(`↩︎ Đã đưa ${viewers.size} người về lại bồ đoàn sau khi cập nhật`); }
+  if (s.tiktok) connectTikTok(String(s.tiktok).slice(0, 60));
 }
 
 /* ------------------------------------------------------------- control */
@@ -476,6 +498,7 @@ function openOverlayWindow(){
 }
 server.listen(PORT, HOST, () => {
   addLog(`Server chạy tại http://localhost:${PORT}  ·  Bảng điều khiển: ${URL_CONTROL}  ·  Overlay: ${URL_OVERLAY}`);
+  restoreSession();
   if (process.env.OPEN_UI === '1' && process.platform === 'win32' && !process.env.CD_RESTARTED){ winStart(URL_CONTROL); setTimeout(openOverlayWindow, 1500); }
   if (VERSION !== 'dev') setTimeout(checkUpdate, 5000);
 });
