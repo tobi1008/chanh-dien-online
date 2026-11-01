@@ -39,10 +39,10 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
   display:flex;align-items:center;gap:14px;font-variant-numeric:tabular-nums;box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .pill small{font-size:20px;font-weight:500;color:var(--muted);line-height:1.05}
 .dot{width:18px;height:18px;border-radius:50%;background:#46d36b;box-shadow:0 0 12px #46d36b;animation:pulse 2s infinite}
-@keyframes pulse{50%{box-shadow:0 0 2px #46d36b;opacity:.7}}
+@keyframes pulse{50%{opacity:.55}}
 /* side cards */
 .card{background:linear-gradient(180deg,rgba(40,18,8,.86),rgba(20,9,4,.86));border:2px solid var(--line);border-radius:24px;padding:20px 22px;font-size:25px;line-height:1.4;
-  backdrop-filter:blur(4px);box-shadow:0 12px 30px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,217,138,.15)}
+  box-shadow:0 12px 30px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,217,138,.15)}
 #guide{left:24px;top:650px;width:292px;display:grid;gap:9px;font-size:22px;line-height:1.35;padding:16px 18px}
 #guide div{display:grid;grid-template-columns:34px 1fr;gap:8px;align-items:start}
 #guide div+div{border-top:1px solid rgba(226,176,79,.25);padding-top:9px}
@@ -411,11 +411,23 @@ tryAutoAudio();
 const ctx=document.getElementById('c').getContext('2d');
 function sprite(im,x,y,s,ay=1){ if(!im?.naturalWidth) return; const w=im.naturalWidth*s,h=im.naturalHeight*s; ctx.drawImage(im,x-w/2,y-h*ay,w,h); }
 function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+// Name cut to fit its seat ("…") and its width, remembered: re-measuring every name letter by letter each frame
+// adds up fast in a full hall. ctx.font must already be set for this size.
+const tagFits = new Map();
+function fitTag(text, fs, maxW, extra){
+  const key = text+'|'+fs+'|'+Math.round(maxW||0)+'|'+Math.round(extra);
+  let r = tagFits.get(key); if (r) return r;
+  let t = text;
+  if (maxW){ while (t.length>2 && ctx.measureText(t).width+extra > maxW) t=t.slice(0,-1); if (t!==text) t=t.trimEnd()+'…'; }
+  r = { text:t, w:ctx.measureText(t).width };
+  if (tagFits.size > 3000) tagFits.clear();
+  tagFits.set(key, r); return r;
+}
 function tag(text,x,y,s,style,av,maxW){
   const fs=Math.max(15,Math.round(30*s/.4)); ctx.font=`600 ${fs}px "Be Vietnam Pro",system-ui,sans-serif`;
   const pad=fs*.5; let aw = av?fs*1.15:0;
-  if (maxW){ if (aw && maxW < fs*5) aw=0, av=null; let t=text; while (t.length>2 && ctx.measureText(t).width+pad*2+aw > maxW) t=t.slice(0,-1); if (t!==text) text=t.trimEnd()+'…'; }
-  const w=ctx.measureText(text).width+pad*2+aw, h=fs*1.5;
+  if (maxW && aw && maxW < fs*5) aw=0, av=null;
+  let w; ({ text, w } = fitTag(text, fs, maxW, pad*2+aw)); w+=pad*2+aw; const h=fs*1.5;
   ctx.fillStyle = style==='gold'?'rgba(70,30,8,.92)':'rgba(18,9,5,.72)'; rr(x-w/2,y-h/2,w,h,h/2); ctx.fill();
   ctx.lineWidth = style==='gold'?3:1.5; ctx.strokeStyle = style==='gold'?'#e2b04f':'rgba(226,176,79,.55)'; ctx.stroke();
   if (av){ ctx.save(); ctx.beginPath(); ctx.arc(x-w/2+pad*.55+aw/2, y, fs*.5, 0, 6.29); ctx.clip(); ctx.drawImage(av, x-w/2+pad*.55+aw/2-fs*.5, y-fs*.5, fs, fs); ctx.restore(); }
@@ -477,9 +489,13 @@ function camera(dt, now){
   const hw = 540/cam.z, hh = 960/cam.z, cx = Math.max(hw, Math.min(1080-hw, cam.x)), cy = Math.max(hh, Math.min(1920-hh, cam.y));
   ctx.setTransform(cam.z, 0, 0, cam.z, 540 - cx*cam.z, 960 - cy*cam.z);
 }
+// The stream goes out at 30 fps, so drawing faster is wasted: uncapped, requestAnimationFrame follows the monitor
+// (144-240 Hz on a gaming PC) and the full 1080×1920 redraw steals CPU/GPU from the game being streamed.
+const FPS = 30; let nextAt = 0;
+function nextFrame(cb){ requestAnimationFrame(function wait(now){ if (now < nextAt-2) return requestAnimationFrame(wait); nextAt = Math.max(nextAt+1000/FPS, now); cb(now); }); }
 let last=performance.now();
 function frame(now){
-  requestAnimationFrame(frame); const dt=Math.min((now-last)/1000,.05); last=now; const t=now/1000;
+  nextFrame(frame); const dt=Math.min((now-last)/1000,.05); last=now; const t=now/1000;
   ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,1080,1920); camera(dt, now);
   if (A.hall.naturalWidth) ctx.drawImage(A.hall,0,0,1080,1920);
   // light: halo pulse behind the Buddha, candle flicker, incense smoke
@@ -563,7 +579,7 @@ c.save();c.setTransform(c.canvas.width/1080,0,0,c.canvas.height/1920,0,0);c.glob
 const w=c.measureText(s).width+60,x=540-w/2,y=322;c.fillStyle='rgba(40,16,6,.88)';c.beginPath();c.roundRect?c.roundRect(x,y,w,54,27):c.rect(x,y,w,54);c.fill();
 c.lineWidth=2;c.strokeStyle='rgba(226,176,79,.9)';c.stroke();c.fillStyle='#ffd98a';c.textAlign='center';c.textBaseline='middle';c.fillText(s,540,y+28);c.restore();}
 const _k='frame',_o=window[_k];window[_k]=function(t){_o(t);try{_g(t);}catch(e){}};})();
-layout(24); requestAnimationFrame(frame);
+layout(24); nextFrame(frame);
 </script>
 </body>
 </html>
