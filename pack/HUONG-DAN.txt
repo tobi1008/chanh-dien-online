@@ -1,0 +1,60 @@
+CHÁNH ĐIỆN TỊNH TÂM · BỘ LIVE CHO WINDOWS 10/11
+================================================
+
+Không cần cài gì thêm. Node.js đã có sẵn trong thư mục "node".
+
+
+1. CÀI LẦN ĐẦU
+--------------
+  • Nếu tải file zip từ mạng về: chuột phải file zip → Properties → tích "Unblock" → OK
+    (bỏ qua bước này Windows có thể chặn file .bat).
+  • Chuột phải file zip → Extract All… → giải nén vào Desktop hoặc Documents.
+    KHÔNG giải nén vào "C:\Program Files" (ở đó không lưu được cài đặt).
+  • Muốn có biểu tượng ngoài màn hình: chuột phải "Mo-Chanh-Dien.bat" → Send to → Desktop (create shortcut).
+
+
+2. MỖI LẦN LIVE
+---------------
+  1) Bấm đúp "Mo-Chanh-Dien.bat".
+     Một cửa sổ đen hiện ra (đó là server), bảng điều khiển tự mở trong trình duyệt,
+     và cửa sổ overlay 9:16 tự mở bằng Microsoft Edge (không có thanh địa chỉ, tự có tiếng).
+     → KHÔNG đóng cửa sổ đen trong lúc live.
+     → Nếu Windows hiện "Windows protected your PC": bấm "More info" → "Run anyway".
+     → Nếu tường lửa hỏi quyền cho node.exe: bấm "Cancel" cũng được, server chỉ chạy trong máy.
+
+  2) Trong bảng điều khiển, tab "Kiểm tra": bấm "Làm trống toàn bộ bồ đoàn" nếu còn người thử.
+
+  3) Nhìn ô "Overlay" trên cùng bảng điều khiển: phải là "Overlay có tiếng" (màu xanh).
+     • Nếu báo "chưa có tiếng": bấm chuột vào cửa sổ overlay một lần.
+     • Nếu lỡ đóng cửa sổ overlay: bấm "Mở cửa sổ overlay ↗" để mở lại.
+     Để nguyên cửa sổ overlay, không thu nhỏ (minimize) nó, không kéo cửa sổ khác đè lên.
+
+  4) Mở TikTok LIVE Studio:
+       Add source → Window capture → chọn cửa sổ "Overlay 9:16 · Chánh Điện Tịnh Tâm".
+     Để có nhạc, chuông, mõ trên live: bật thu âm thanh máy tính (Desktop / System audio) trong LIVE Studio.
+     (Nếu dùng OBS: thêm Browser source, URL http://localhost:3000/live/overlay.html, kích thước 1080 × 1920.)
+
+  5) Bấm Go LIVE trên TikTok. Sau đó quay lại bảng điều khiển, tab "Kết nối":
+     nhập @username kênh của bạn → bấm "Kết nối". Thấy chữ "TikTok @..." màu xanh là xong.
+
+
+3. CẬP NHẬT BẢN MỚI
+-------------------
+  Bảng điều khiển → tab "Kết nối" → khung "Cập nhật" → bấm "Kiểm tra cập nhật".
+  Có bản mới thì bấm "Cập nhật ngay": chánh điện tự tải, tự khởi động lại trong vài giây,
+  không cần tải zip hay giải nén. Cài đặt và bảng Công Đức được giữ nguyên.
+  Nên cập nhật lúc KHÔNG đang live.
+
+
+4. TẮT
+------
+  Kết thúc live → đóng cửa sổ đen. Cài đặt (tên thiền đường, bộ lọc, từ cấm…) được lưu lại cho lần sau.
+
+
+5. GẶP LỖI
+----------
+  • "Cổng 3000 đang được dùng": Chánh Điện đã mở ở một cửa sổ đen khác. Dùng cửa sổ đó, hoặc đóng nó rồi mở lại.
+  • Bảng điều khiển không tự mở: mở trình duyệt, gõ  http://localhost:3000/live/control.html
+  • "Không kết nối được @...": kiểm tra đã bật LIVE trên TikTok chưa, gõ đúng username chưa, máy có Internet không.
+    Thư viện đọc TikTok là thư viện cộng đồng, có thể tạm hỏng khi TikTok thay đổi hệ thống.
+  • Overlay trắng hoặc đứng hình trên live: bấm vào cửa sổ overlay, nhấn F5.

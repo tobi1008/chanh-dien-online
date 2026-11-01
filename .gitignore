@@ -1,7 +1,10 @@
 node_modules/
-live/tts/
 *.log
 .env
 .env.*
 .DS_Store
 Thumbs.db
+live/config.json
+live/merit.json
+dist/
+pack/.cache/
