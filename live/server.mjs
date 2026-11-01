@@ -35,6 +35,7 @@ const settings = {
   filterMode: 'hide',                // hide: drop the comment · mask: show it with *** in place of bad words
   filterStrikes: 3,                  // bad comments before a viewer is removed and blocked (0 = never)
   filterExtra: '',                   // extra blocked words, comma separated
+  audioOut: '',                      // overlay sound device name, e.g. "CABLE Input" (empty = Windows default speakers)
 };
 // Settings survive restarts in live/config.json (git-ignored).
 const CONFIG = path.join(__dirname, 'config.json');
@@ -358,6 +359,7 @@ const SETTING_RULES = {
   music: Boolean, mo: Boolean, autoChant: Boolean, showEnter: Boolean, syncViewers: Boolean,
   prayerFromChat: Boolean, filterOn: Boolean,
   filterMode: v => v === 'mask' ? 'mask' : 'hide', filterStrikes: v => clamp(v, 0, 20), filterExtra: v => String(v).slice(0, 3000),
+  audioOut: v => String(v).slice(0, 120),
 };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, Math.round(+v || 0)));
 function applySettings(o){ for (const [k, fn] of Object.entries(SETTING_RULES)) if (k in o) settings[k] = fn(o[k]); wordFilter.setExtraWords(settings.filterExtra); }
@@ -413,10 +415,12 @@ const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 64 * 1024,
     try { return okHost(new URL(origin).host); } catch { return false; }
   } });
 function broadcast(msg, only){ const s = JSON.stringify(msg); for (const c of wss.clients) if (c.readyState === 1 && (!only || c.role === only)) c.send(s); }
-// Overlay windows (not the silent previews) report whether they have sound, so the panel can warn when they don't.
+// Overlay windows (not the silent previews) report whether they have sound, so the panel can warn when they don't,
+// plus the sound devices they can play to and the one in use (for the "Phát âm thanh ra" picker).
 function overlayStatus(){
   const list = [...wss.clients].filter(c => c.readyState === 1 && c.role === 'overlay');
-  return { t:'overlays', open: list.length, sound: list.filter(c => c.audio).length };
+  const dev = list.find(c => c.outs?.length) || list[0];
+  return { t:'overlays', open: list.length, sound: list.filter(c => c.audio).length, outs: dev?.outs || [], sink: dev?.sink || '' };
 }
 wss.on('connection', (ws, req) => {
   const role = new URL(req.url, 'http://x').searchParams.get('role');
@@ -426,7 +430,10 @@ wss.on('connection', (ws, req) => {
   if (ws.role === 'control'){ ws.send(JSON.stringify({ t:'logs', lines: log })); ws.send(JSON.stringify({ t:'blocked', list: blockedList() })); ws.send(JSON.stringify({ t:'filteredAll', list: recentFiltered })); ws.send(JSON.stringify({ t:'viewers', n: viewerCount })); ws.send(JSON.stringify(overlayStatus())); updateState(); }
   ws.on('message', buf => {
     if (ws.role === 'overlay'){                                 // overlays may only report their sound state
-      try { const m = JSON.parse(buf); if (m?.t === 'audio'){ ws.audio = !!m.on; broadcast(overlayStatus(), 'control'); } } catch {}
+      try { const m = JSON.parse(buf); if (m?.t === 'audio'){
+        ws.audio = !!m.on; ws.sink = String(m.sink || '').slice(0, 120);
+        ws.outs = Array.isArray(m.outs) ? m.outs.slice(0, 40).map(s => String(s).slice(0, 120)) : [];
+        broadcast(overlayStatus(), 'control'); } } catch {}
       return;
     }
     if (ws.role !== 'control') return;
@@ -455,6 +462,8 @@ function openOverlayWindow(){
     const h = Math.max(480, Math.min(4000, parseInt(out, 10) || 960)), w = Math.round(h * 9 / 16);
     const profile = path.join(process.env.LOCALAPPDATA || os.tmpdir(), 'ChanhDienLive', 'edge-overlay');
     winStart('msedge', `--app=${URL_OVERLAY}`, `--user-data-dir=${profile}`, '--autoplay-policy=no-user-gesture-required',
+      // grants the device-name permission without a prompt on stream (overlay.html reads output names, never records)
+      '--use-fake-ui-for-media-stream',
       '--no-first-run', '--disable-features=Translate', `--window-size=${w},${h}`, '--window-position=0,0');
   });
   addLog('Đã mở cửa sổ overlay (Edge). Nếu không thấy, bấm "Mở cửa sổ overlay" trong bảng điều khiển.');

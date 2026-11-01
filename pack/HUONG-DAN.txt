@@ -37,6 +37,15 @@ Không cần cài gì thêm. Node.js đã có sẵn trong thư mục "node".
   5) Bấm Go LIVE trên TikTok. Sau đó quay lại bảng điều khiển, tab "Kết nối":
      nhập @username kênh của bạn → bấm "Kết nối". Thấy chữ "TikTok @..." màu xanh là xong.
 
+  TÁCH TIẾNG: muốn xem video khác mà không lọt tiếng vào live
+     • Cài VB-Cable miễn phí (https://vb-audio.com/Cable/), khởi động lại máy.
+     • Bảng điều khiển → khung "Nhạc · chuông · mõ" → "Phát âm thanh overlay ra" → chọn "CABLE Input".
+       (Không thấy trong danh sách: đóng cửa sổ overlay rồi bấm "Mở cửa sổ overlay".)
+     • TikTok LIVE Studio: TẮT âm thanh máy tính (Desktop / System audio),
+       thêm nguồn mic / audio input là "CABLE Output".
+     • Muốn tự nghe tiếng chánh điện: Windows Sound → tab Recording → CABLE Output → Properties
+       → Listen → tích "Listen to this device" → chọn loa của bạn.
+
 
 3. CẬP NHẬT BẢN MỚI
 -------------------

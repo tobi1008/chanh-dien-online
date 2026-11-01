@@ -258,6 +258,7 @@ function startAudio(){
   master = AC.createGain(); master.gain.value=.9; master.connect(AC.destination);
   musicGain = AC.createGain(); musicGain.gain.value=settings.music?.5:0; musicGain.connect(master);
   sfx = AC.createGain(); sfx.gain.value=1; sfx.connect(master);
+  listOuts().then(applySink);
   nextTrack(); scheduleMo(); bell();
 }
 function nextTrack(){
@@ -355,15 +356,37 @@ function applySettings(){
   document.getElementById('title').textContent=settings.title||'Chánh Điện Tịnh Tâm'; fitTitle();
   document.getElementById('subtitle').textContent=settings.subtitle||'Nam Mô A Di Đà Phật';
   duck(false); scheduleMo();
+  if ((settings.audioOut||'')!==sinkWant) applySink();
 }
+// Sound device (settings.audioOut, e.g. "CABLE Input" of VB-Cable): LIVE Studio then records only this window from the
+// cable while other videos keep playing on the speakers. Chromium hides device names until the page has microphone
+// permission, so the mic is opened once and closed at once, never recorded (the Edge app window is granted it silently).
+let outs=[], sink='', sinkWant='';
+async function listOuts(){
+  if (PREVIEW || !navigator.mediaDevices?.enumerateDevices) return;
+  const named = async () => (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind==='audiooutput' && d.label);
+  try {
+    let list = await named();
+    if (!list.length){ const s=await navigator.mediaDevices.getUserMedia({ audio:true }); s.getTracks().forEach(t=>t.stop()); list = await named(); }
+    outs = list.filter(d => d.deviceId!=='default' && d.deviceId!=='communications');
+  } catch { outs=[]; }
+}
+async function applySink(){
+  sinkWant = settings.audioOut||'';
+  if (!AC?.setSinkId || PREVIEW) return reportAudio();
+  const dev = sinkWant && outs.find(d => d.label===sinkWant);
+  try { await AC.setSinkId(dev ? dev.deviceId : ''); sink = dev ? dev.label : ''; } catch { sink=''; }
+  reportAudio();
+}
+navigator.mediaDevices?.addEventListener?.('devicechange', () => { if (audioOn) listOuts().then(applySink); });
 // shrink long names to fit the plaque instead of cutting them off (again once the web font has loaded)
 function fitTitle(){
   const ti=document.getElementById('title'); ti.style.fontSize=''; ti.style.letterSpacing=''; let fs=60;
   while (ti.scrollWidth>ti.clientWidth && fs>34){ fs-=2; ti.style.fontSize=fs+'px'; if (fs<52) ti.style.letterSpacing='.03em'; }
 }
 document.fonts?.ready.then(fitTitle);
-// tells the control panel whether this window has sound (the only thing an overlay ever sends)
-function reportAudio(){ if (!PREVIEW && ws?.readyState===1) ws.send(JSON.stringify({ t:'audio', on:audioOn })); }
+// tells the control panel whether this window has sound and where it goes (the only thing an overlay ever sends)
+function reportAudio(){ if (!PREVIEW && ws?.readyState===1) ws.send(JSON.stringify({ t:'audio', on:audioOn, outs:outs.map(d=>d.label), sink })); }
 connect();
 tryAutoAudio();
 

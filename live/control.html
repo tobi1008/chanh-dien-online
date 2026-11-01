@@ -240,6 +240,8 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
               <label>Nhịp mõ (BPM)<input id="moBpm" type="number" min="20" max="120" value="52"></label>
               <label>Hiện kinh mỗi (phút)<input id="chantEveryMin" type="number" min="1" max="60" value="3"></label>
             </div>
+            <label>Phát âm thanh overlay ra<select id="audioOut"><option value="">Loa mặc định của máy</option></select></label>
+            <p class="hint" id="audioOutInfo">Chọn <b>CABLE Input</b> (VB-Cable) để TikTok LIVE Studio chỉ thu tiếng chánh điện: trong LIVE Studio tắt âm thanh máy tính, thêm mic <b>CABLE Output</b>. Xem video khác sẽ không lọt vào live.</p>
             <div class="btns"><button id="btnBell">🔔 Thỉnh chuông</button><button id="btnMo">🪵 Gõ mõ</button></div>
           </div>
         </div>
@@ -320,8 +322,17 @@ try{ const t=$('tab-'+location.hash.slice(1)) || $(localStorage.getItem('cd.tab'
 
 /* settings */
 const SETTING_IDS = ['music','mo','autoChant','moBpm','chantEveryMin','title','subtitle','showEnter','syncViewers',
-  'prayerFromChat','filterOn','filterMode','filterStrikes','filterExtra'];
-function fillSettings(s){ for (const k of SETTING_IDS){ const el=$(k); if (!el || s[k]===undefined || el===document.activeElement) continue; if (el.type==='checkbox') el.checked=!!s[k]; else el.value=s[k]; } $('brandTitle').textContent=s.title||'Chánh Điện Tịnh Tâm'; }
+  'prayerFromChat','filterOn','filterMode','filterStrikes','filterExtra','audioOut'];
+// sound devices come from the overlay window; the saved one stays in the list even when the overlay doesn't see it,
+// otherwise the next settings save would quietly reset it to the default speakers
+let outNames=[], savedOut=''; const OUT_HINT=$('audioOutInfo').innerHTML;
+function drawOuts(){
+  const sel=$('audioOut'); if (sel===document.activeElement) return;
+  const names=[...new Set([...outNames, savedOut].filter(Boolean))];
+  sel.replaceChildren(new Option('Loa mặc định của máy',''), ...names.map(n => new Option(outNames.includes(n) ? n : n+' (không thấy)', n)));
+  sel.value=savedOut;
+}
+function fillSettings(s){ if (s.audioOut!==undefined){ savedOut=s.audioOut; drawOuts(); } for (const k of SETTING_IDS){ const el=$(k); if (!el || s[k]===undefined || el===document.activeElement) continue; if (el.type==='checkbox') el.checked=!!s[k]; else el.value=s[k]; } $('brandTitle').textContent=s.title||'Chánh Điện Tịnh Tâm'; }
 function readSettings(){ const o={}; for (const k of SETTING_IDS){ const el=$(k); o[k] = el.type==='checkbox' ? el.checked : el.type==='number' ? +el.value : el.value; } return o; }
 for (const k of SETTING_IDS) $(k).addEventListener('change', () => { if (send('settings', { settings: readSettings() })) toast('Đã lưu cài đặt'); });
 
@@ -407,7 +418,14 @@ function connect(){
       case 'openOverlayHere': openOverlayHere(); break;
       case 'overlays': { const el=$('ovl');
         el.className = 'chip ' + (!m.open ? '' : m.sound ? 'ok' : 'bad');
-        el.lastChild.textContent = !m.open ? 'Overlay chưa mở' : m.sound ? 'Overlay có tiếng' : 'Overlay chưa có tiếng: bấm vào cửa sổ overlay'; } break;
+        el.lastChild.textContent = !m.open ? 'Overlay chưa mở' : m.sound ? 'Overlay có tiếng' : 'Overlay chưa có tiếng: bấm vào cửa sổ overlay';
+        if (m.open && m.sound){ outNames=m.outs||[]; drawOuts();
+          const info=$('audioOutInfo');
+          if (savedOut && m.sink!==savedOut) info.textContent = `⚠️ Không phát ra được “${savedOut}” (máy chưa có thiết bị này?), overlay đang phát ra loa mặc định.`;
+          else if (m.sink) info.textContent = `✅ Overlay đang phát ra “${m.sink}”. Trong LIVE Studio: tắt âm thanh máy tính, chỉ giữ mic tương ứng (với VB-Cable là CABLE Output).`;
+          else if (!outNames.length) info.textContent = 'Chưa đọc được danh sách thiết bị âm thanh. Đóng cửa sổ overlay rồi bấm "Mở cửa sổ overlay" để mở lại.';
+          else info.innerHTML = OUT_HINT;
+        } } break;
       case 'viewers': $('watch').textContent = '👁 ' + (m.n==null ? '—' : m.n.toLocaleString('vi-VN') + ' đang xem'); break;
       case 'filteredAll': filtered.splice(0, filtered.length, ...m.list); drawFiltered(); break;
       case 'update': drawUpdate(m); break;
