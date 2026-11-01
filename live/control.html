@@ -259,6 +259,7 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
           <div class="group">
             <h3>Khi có quà</h3>
             <label class="sw"><span>Dùng bình luận của người tặng làm lời nguyện<small>Bình luận có từ cấm sẽ không bao giờ được dùng</small></span><input type="checkbox" id="prayerFromChat" checked></label>
+            <label class="sw"><span>Xin xăm khi tặng quà<small>Mỗi lần tặng quà được 1 lượt (giữ tối đa 3). Gõ "xin xăm" để lên bàn thờ rút quẻ.</small></span><input type="checkbox" id="xamOn" checked></label>
             <p class="hint">Tắt mục trên để banner quà chỉ dùng các câu nguyện có sẵn.</p>
           </div>
         </div>
@@ -322,7 +323,7 @@ try{ const t=$('tab-'+location.hash.slice(1)) || $(localStorage.getItem('cd.tab'
 
 /* settings */
 const SETTING_IDS = ['music','mo','autoChant','moBpm','chantEveryMin','title','subtitle','showEnter','syncViewers',
-  'prayerFromChat','filterOn','filterMode','filterStrikes','filterExtra','audioOut'];
+  'prayerFromChat','filterOn','filterMode','filterStrikes','filterExtra','audioOut','xamOn'];
 // sound devices come from the overlay window; the saved one stays in the list even when the overlay doesn't see it,
 // otherwise the next settings save would quietly reset it to the default speakers
 let outNames=[], savedOut=''; const OUT_HINT=$('audioOutInfo').innerHTML;

@@ -75,6 +75,17 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
 #gift .who{font-family:var(--display);font-weight:700;font-size:54px;line-height:1.15;color:#fff3d0;text-shadow:0 2px 0 #3a1406,0 0 24px rgba(255,200,100,.5);overflow-wrap:anywhere}
 #gift .what{font-size:34px;margin-top:8px}
 #gift .what b{color:var(--gold2)}
+/* fortune stick card (xin xăm): bottom of the frame, so it never covers the gift banner or the altar close-up */
+#xam{left:60px;right:60px;bottom:110px;z-index:5;padding:24px 40px 28px;text-align:center;border-radius:30px;border:3px solid var(--gold2);
+  background:radial-gradient(ellipse at 50% 0%,rgba(120,60,14,.97),rgba(40,14,5,.97));box-shadow:0 0 60px rgba(255,190,90,.4),0 20px 50px rgba(0,0,0,.5);
+  opacity:0;transform:translateY(30px);transition:opacity .5s,transform .5s}
+#xam.show{opacity:1;transform:none}
+#xam .lbl{display:inline-block;margin-bottom:8px;padding:4px 18px;border-radius:999px;border:1px solid rgba(255,217,138,.6);font-size:24px;letter-spacing:.16em;color:var(--gold2);background:rgba(0,0,0,.25)}
+#xam .who{font-size:30px;color:var(--muted)}
+#xam .who span{font-family:var(--display);font-weight:700;font-size:40px;color:#fff3d0;overflow-wrap:anywhere}
+#xam .poem{font-family:var(--display);font-style:italic;font-size:33px;line-height:1.45;margin:12px 0;color:var(--fg)}
+#xam .mean{font-size:27px;line-height:1.4;color:var(--fg);border-top:1px solid rgba(226,176,79,.35);padding-top:12px}
+#xam .mean b{color:var(--gold2)}
 #gift .pray{font-family:var(--display);font-style:italic;font-size:31px;color:var(--fg);margin-top:14px;opacity:.95}
 /* enable sound (needed once: browsers block autoplay) */
 /* only shown when the browser blocks sound: small, bottom corner, gone after the first click anywhere */
@@ -109,11 +120,13 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
     <div><i>🧘</i><span>Gõ <b>nam · nữ · sư · ni · tiểu · bà · cao tăng</b> để đổi hình</span></div>
     <div><i>🙏</i><span>Gõ <b>thắp nhang</b> để lên bàn thờ dâng hương</span></div>
     <div><i>🎁</i><span>Tặng quà được <b>ghi tên hồi hướng</b></span></div>
+    <div><i>🎋</i><span>Tặng quà rồi gõ <b>xin xăm</b> để xin một quẻ</span></div>
   </div>
   <div id="merit" class="card ui"><h3>✦ Công Đức ✦</h3><ol id="meritList"><li class="empty">Chưa có</li></ol></div>
   <div id="enters" class="ui" aria-live="polite"></div>
   <div id="chant" class="ui"><h4 id="chantHead">✦ TỤNG KINH ĐỊNH KỲ ✦</h4><p id="chantText"></p></div>
   <div id="gift" class="ui"><div class="lbl">✦ HỒI HƯỚNG CÔNG ĐỨC ✦</div><div class="who" id="giftWho"></div><div class="what" id="giftWhat"></div><div class="pray" id="giftPray"></div></div>
+  <div id="xam" class="ui"><div class="lbl" id="xamNo"></div><div class="who"><span id="xamWho"></span> xin được quẻ</div><div class="poem" id="xamPoem"></div><div class="mean"><b>Lời giải:</b> <span id="xamMeaning"></span></div></div>
   <button id="unmute" hidden>🔈 Bấm để bật âm thanh</button>
   <div id="conn">đang kết nối…</div>
 </div></div>
@@ -184,20 +197,27 @@ function removeVisitor(id){ visitors.delete(id); reseat(); }
 // (left or right spot, so he stays visible), raises the incense and bows three times, plants it in the censer, walks back.
 // Two spots: anyone else waits in line (at most 8 waiting).
 // A gift sends the giver up the same way, ahead of the incense line: a flower gift offers a lotus on the altar, any other
-// gift offers incense, and the camera zooms in on them while they bow (see camera()).
+// gift offers incense, and the camera zooms in on them while they bow (see camera()). Only gifts get the close-up:
+// "thắp nhang" from the chat never zooms. "Xin xăm" (paid by a gift on the server) goes up the same way, shakes the
+// fortune tube and shows the stick it drew (kind 'xam', with the drawn stick in xam).
 const ALTAR = { y: 1175, spots: [445, 635], censerX: 540, censerY: 968 };
-const altarBusy = [null, null], incenseQ = [], sticks = [];   // incenseQ: { id, kind:'incense'|'flower', gift } · sticks: offerings on the altar
+const altarBusy = [null, null], incenseQ = [], sticks = [];   // incenseQ: { id, kind:'incense'|'flower'|'xam', gift, xam } · sticks: offerings on the altar
 const OFFER_T = 4.6, PLANT_AT = 3.9;
 const isFlower = name => /rose|flower|bouquet|tulip|lotus|daisy|hoa|bông|\bsen\b/i.test(name || '');
-function queueIncense(id, kind = 'incense', gift = false){
+function queueIncense(id, kind = 'incense', gift = false, xam = null){
   const v = visitors.get(id);
   if (altarBusy.includes(id) && (v?.state==='toAltar' || v?.state==='offer')){         // already up there: a gift still gets its close-up
+    if (xam){ v.pendingXam = xam; return; }                                              // and a fortune goes up again right after
     if (gift && !v.gift){ v.gift = true; if (v.state==='offer') zoomTo(v); }
     return;
   }
   const q = incenseQ.find(e => e.id===id);
-  if (q){ if (gift && !q.gift){ incenseQ.splice(incenseQ.indexOf(q), 1); queueIncense(id, kind, true); } return; }
-  const e = { id, kind, gift };
+  if (q){
+    if (xam){ q.kind = 'xam'; q.xam = xam; }                                             // the gift's trip becomes the fortune draw
+    if (gift && !q.gift){ incenseQ.splice(incenseQ.indexOf(q), 1); queueIncense(id, q.kind, true, q.xam); }
+    return;
+  }
+  const e = { id, kind, gift, xam };
   if (gift){ const i = incenseQ.findIndex(x => !x.gift); incenseQ.splice(i < 0 ? incenseQ.length : i, 0, e); } else incenseQ.push(e);
   if (incenseQ.length > 8){ const old = incenseQ.findIndex(x => !x.gift); incenseQ.splice(Math.max(0, old), 1); }   // longest-waiting incense goes first
 }
@@ -205,11 +225,11 @@ function startIncense(){
   for (let i = 0; i < altarBusy.length; i++){
     const st=visitors.get(altarBusy[i])?.state; if (st==='toAltar' || st==='offer') continue;   // gone or reset by a new 'state': spot is free
     altarBusy[i] = null;
-    let v; while (incenseQ.length && !(v = visitors.get(incenseQ[0].id))?.seat) incenseQ.shift();
+    let v; while (incenseQ.length && !(v = visitors.get(incenseQ[0].id))?.seat){ const gone=incenseQ.shift(); if (gone.xam) showXam(gone.xam); }   // left: still show their fortune
     if (!incenseQ.length) return;
     const e = incenseQ.shift();
     if (v.state === 'walk'){ v.x = v.seat.x; v.y = v.seat.y; }                         // still walking in: skip to the seat
-    altarBusy[i] = v.id; v.spot = i; v.state = 'toAltar'; v.planted = false; v.offerKind = e.kind; v.gift = e.gift;
+    altarBusy[i] = v.id; v.spot = i; v.state = 'toAltar'; v.planted = false; v.offerKind = e.kind; v.gift = e.gift; v.xam = e.xam;
     v.path = [{ x:540, y:v.y }, { x:540, y:ALTAR.y + 40 }, { x:ALTAR.spots[i], y:ALTAR.y }];
   }
 }
@@ -322,6 +342,11 @@ function giftFx(v, tier){
   if (tier>=3){ bell(true); for (let i=0;i<30;i++) petals.push({x:540+(Math.random()-.5)*600, y:300+Math.random()*250, vx:(Math.random()-.5)*40, vy:30+Math.random()*50, t:0, life:5, s:.2+Math.random()*.15}); }
 }
 function plantIncense(v){
+  if (v.offerKind==='xam'){                                                              // a stick jumps out of the tube
+    v.glow=1; haloPulse=Math.max(haloPulse,.6); bell();
+    flying.push({ x:v.x, y:v.y-150, vx:(v.spot?1:-1)*60, vy:-260, t:0, life:1.6 });
+    showXam(v.xam); return;
+  }
   if (v.offerKind==='flower'){ const side = sticks.filter(k=>k.flower).length%2 ? 1 : -1;   // lotuses alternate either side of the censer
     sticks.push({ x: ALTAR.censerX + side*(70+Math.random()*45), t:0, life:60, flower:true }); }
   else sticks.push({ x: ALTAR.censerX + (Math.random()-.5)*34, t:0, life:40 });
@@ -335,6 +360,33 @@ function drawSticks(dt, t){
     ctx.save(); ctx.globalAlpha=Math.min(1,k.t*3,(k.life-k.t)/4); sprite(A.incense, k.x, ALTAR.censerY+4, .3);
     ctx.globalCompositeOperation='lighter'; ctx.globalAlpha*=.5+.3*Math.sin(t*7+i*2); ctx.fillStyle='#ff9a3c';
     ctx.beginPath(); ctx.arc(k.x, ALTAR.censerY-40, 6, 0, 6.29); ctx.fill(); ctx.restore(); }
+}
+// Fortune tube (ống xăm) held in both hands and shaken while praying. Drawn here, there is no sprite for it.
+// Origin = bottom of the tube; k = size.
+function drawTube(x, y, k, shake){
+  ctx.save(); ctx.translate(x, y); ctx.rotate(shake);
+  ctx.fillStyle='#e8c46a'; for (let i=0;i<7;i++) ctx.fillRect(-12*k+i*3.6*k, -66*k-(i*7%3)*5*k, 2.4*k, 32*k);
+  const g=ctx.createLinearGradient(-15*k,0,15*k,0); g.addColorStop(0,'#5a1a0c'); g.addColorStop(.5,'#b23c1f'); g.addColorStop(1,'#5a1a0c');
+  ctx.fillStyle=g; rr(-15*k,-44*k,30*k,44*k,4*k); ctx.fill();
+  ctx.fillStyle='#e2b04f'; ctx.fillRect(-15*k,-40*k,30*k,3*k); ctx.fillRect(-15*k,-7*k,30*k,3*k);
+  ctx.restore();
+}
+const flying=[];                                   // the drawn stick jumping out of the tube
+function drawFlying(dt){
+  for (let i=flying.length-1;i>=0;i--){ const f=flying[i]; f.t+=dt; if (f.t>f.life){ flying.splice(i,1); continue; }
+    f.vy+=520*dt; f.x+=f.vx*dt; f.y+=f.vy*dt;
+    ctx.save(); ctx.globalAlpha=Math.min(1,(f.life-f.t)*3); ctx.translate(f.x,f.y); ctx.rotate(f.t*7);
+    ctx.shadowColor='rgba(255,210,120,.9)'; ctx.shadowBlur=18; ctx.fillStyle='#ffd98a'; ctx.fillRect(-3,-30,6,60);
+    ctx.fillStyle='#b23c1f'; ctx.fillRect(-3,-30,6,10); ctx.restore(); }
+}
+let xamHide=null;
+function showXam(m){
+  if (!m) return;
+  document.getElementById('xamNo').textContent=`✦ XĂM SỐ ${m.no} · ${String(m.level||'').toUpperCase()} ✦`;
+  document.getElementById('xamWho').textContent=m.name;
+  document.getElementById('xamPoem').replaceChildren(...(m.poem||[]).map(l=>{ const d=document.createElement('div'); d.textContent=l; return d; }));
+  document.getElementById('xamMeaning').textContent=m.meaning||'';
+  const el=document.getElementById('xam'); el.classList.add('show'); clearTimeout(xamHide); xamHide=setTimeout(()=>el.classList.remove('show'), 15000);
 }
 function hearts(v,n){ for (let i=0;i<Math.min(6,n);i++) petals.push({x:v.x+(Math.random()-.5)*60, y:v.y-140*(v.seat?.scale||.4), vx:(Math.random()-.5)*20, vy:-(50+Math.random()*40), t:0, life:1.6, s:.08, heart:true}); }
 
@@ -357,6 +409,7 @@ function connect(){
       case 'join': if (m.cap!==cap) layout(m.cap); addVisitor(m.v); updateCount(); break;
       case 'leave': removeVisitor(m.id); updateCount(); break;
       case 'incense': queueIncense(m.id); break;
+      case 'xam': { const v=visitors.get(m.id); if (v?.seat) queueIncense(m.id,'xam',true,m); else showXam(m); } break;
       case 'skin': { const v=visitors.get(m.id); if(v){ v.skin=m.skin; v.glow=.8; if(v.state!=='sit'){ v.state='sit'; v.frame=7; } } } break;
       case 'chat': { const v=visitors.get(m.id); if(v){ v.bubble={text:m.text||'', emotes:m.emotes||[], until:performance.now()+Math.min(12000, 5000+(m.text||'').length*60)}; v.bow=.6; } } break;
       case 'gift': { const v=visitors.get(m.id); if(v){ v.coins=m.total; giftFx(v,m.tier); queueIncense(v.id, isFlower(m.giftName)?'flower':'incense', true); } meritTop=m.merit||meritTop; renderMerit(); showGift(m); } break;
@@ -523,7 +576,8 @@ function frame(now){
       const was=v.offerT; v.offerT+=dt; v.frame=4;
       for (const b of [.5,1.6,2.7]) if (was<b && v.offerT>=b) v.bow=1;                 // three bows
       if (!v.planted && v.offerT>=PLANT_AT){ v.planted=true; plantIncense(v); }
-      if (v.offerT>=OFFER_T){ v.state='back'; v.path=[{ x:540, y:ALTAR.y+40 }, { x:540, y:v.seat.y }, { x:v.seat.x, y:v.seat.y }]; altarBusy[v.spot]=null; }
+      if (v.offerT>=OFFER_T){ v.state='back'; v.path=[{ x:540, y:ALTAR.y+40 }, { x:540, y:v.seat.y }, { x:v.seat.x, y:v.seat.y }]; altarBusy[v.spot]=null;
+        if (v.pendingXam){ const x=v.pendingXam; v.pendingXam=null; setTimeout(()=>queueIncense(v.id,'xam',true,x), 1500); } }
     }
     else if (v.state==='back'){ if (follow(v,dt)){ v.flip=false; if (anim){ v.state='sitting'; v.sitT=0; } else { v.state='sit'; v.frame=7; } } }
     else if (v.state==='walk' && v.seat){
@@ -546,7 +600,10 @@ function frame(now){
     ctx.restore();
     if (v.state==='offer' && !v.planted){                                              // incense (or a lotus) held up in both hands
       const lift=Math.min(1,v.offerT*3), bob=Math.sin(Math.min(1,v.bow)*Math.PI)*28*ws;
-      ctx.save(); ctx.globalAlpha=lift; sprite(v.offerKind==='flower'?A.lotus:A.incense, v.x, v.y-topY*.62+bob, ws*.55); ctx.restore(); }
+      ctx.save(); ctx.globalAlpha=lift;
+      if (v.offerKind==='xam') drawTube(v.x, v.y-topY*.5+bob, ws*2.1, v.offerT>.8 ? Math.sin(t*24)*.16 : 0);   // shaken once raised
+      else sprite(v.offerKind==='flower'?A.lotus:A.incense, v.x, v.y-topY*.62+bob, ws*.55);
+      ctx.restore(); }
     const ty=v.y-topY-14*ws/.4;
     const gold = v.skin==='master'||v.coins>=99 ? 'gold' : '', live = v.bubble && now<v.bubble.until;
     if (!live) v.bubble=null;
@@ -568,6 +625,7 @@ function frame(now){
     ctx.save(); ctx.globalAlpha=Math.min(1,p.life-p.t); ctx.translate(p.x,p.y);
     if (p.heart){ ctx.fillStyle='#ff5a7a'; ctx.font='34px serif'; ctx.textAlign='center'; ctx.fillText('♥',0,0); } else { ctx.rotate(Math.sin(p.t*2+i)*.6); sprite(A.petal,0,0,p.s,.5); }
     ctx.restore(); }
+  drawFlying(dt);
   ctx.setTransform(1,0,0,1,0,0);
 }
 /* lantern ambience: every few minutes the hall lanterns brighten for a moment */

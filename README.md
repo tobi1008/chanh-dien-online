@@ -47,7 +47,8 @@ Sửa `index.html` (bản web) hay `README.md` thì không tạo Release, vì zi
 - **Rời live**: TikTok không báo ai rời đi, chỉ báo số người đang xem. Khi số người ngồi nhiều hơn số người xem, người im lặng lâu nhất sẽ rời chánh điện trước (người tặng quà ra sau cùng, ai vừa hoạt động trong 1 phút được giữ lại). Quay lại thì được ngồi lại. Tắt được bằng mục *Theo số người đang xem*.
 - **Bình luận bất kỳ**: hiện bong bóng chữ trên đầu nhân vật (người chưa ngồi thì được ngồi luôn). Bình luận dài tự xuống dòng (tối đa 5 dòng), có emoji và sticker TikTok.
 - **Bình luận đúng một từ** `nam`, `nữ`, `sư`, `ni`, `tiểu`, `bà`, `cao tăng`: đổi hình nhân vật. Câu "Nam mô A Di Đà Phật" không bị hiểu nhầm thành "nam".
-- **Tặng quà**: banner ghi tên hồi hướng (lấy lời nguyện từ bình luận gần nhất của người đó nếu có), hiệu ứng theo giá trị quà, cộng điểm vào bảng Công Đức. Người tặng đứng dậy lên bàn thờ dâng lễ (quà hoa như Rose thì dâng hoa sen, quà khác thì dâng hương), màn hình zoom cận vào người đó khoảng 4 giây rồi trở lại toàn cảnh. Nhiều người tặng liền nhau thì lần lượt từng người.
+- **Tặng quà**: banner ghi tên hồi hướng (lấy lời nguyện từ bình luận gần nhất của người đó nếu có), hiệu ứng theo giá trị quà, cộng điểm vào bảng Công Đức. Người tặng đứng dậy lên bàn thờ dâng lễ (quà hoa như Rose thì dâng hoa sen, quà khác thì dâng hương), màn hình zoom cận vào người đó khoảng 4 giây rồi trở lại toàn cảnh. Nhiều người tặng liền nhau thì lần lượt từng người. Chỉ người tặng quà mới được zoom, gõ "thắp nhang" thì không.
+- **Xin xăm**: mỗi lần tặng quà được 1 lượt (giữ tối đa 3). Gõ `xin xăm` thì lên bàn thờ lắc ống xăm, có zoom, rồi hiện quẻ: số xăm, mức, 4 câu thơ và lời giải. Gõ trước rồi tặng quà trong vòng 3 phút cũng được. Chưa tặng quà thì màn hình nhắc tặng quà. Bộ 30 quẻ nằm trong `live/xam.mjs`, sửa hay thêm thoải mái. Tắt được trong bảng điều khiển.
 - **Thả tim**: tim bay trên đầu nhân vật.
 
 ### Bộ lọc từ tục tĩu
