@@ -36,7 +36,7 @@ const settings = {
   filterMode: 'hide',                // hide: drop the comment · mask: show it with *** in place of bad words
   filterStrikes: 3,                  // bad comments before a viewer is removed and blocked (0 = never)
   filterExtra: '',                   // extra blocked words, comma separated
-  xamOn: true,                       // "xin xăm" after a gift
+  xamOn: true,                       // "xin xăm", free, once per viewer
   audioOut: '',                      // overlay sound device name, e.g. "CABLE Input" (empty = Windows default speakers)
 };
 // Settings survive restarts in live/config.json (git-ignored).
@@ -92,11 +92,10 @@ function wantsIncense(id, text){
   return true;
 }
 
-// "xin xăm" draws a fortune stick (live/xam.mjs), but only for viewers who gave a gift: each gift is one draw, at most
-// 3 kept. Asking first and giving within 3 minutes draws right away with that gift. Asking without a gift puts a small
-// reminder bubble over that viewer's head only (no banner, no bell: the stream is shared by everyone), once per 30 s each.
+// "xin xăm" draws a fortune stick (live/xam.mjs), free, but once per viewer for the whole live. Asking again puts a small
+// bubble over that viewer's head only (no banner, no bell: the stream is shared by everyone), once per 30 s each.
 const XAM_RE = /xin\s*x[aă]m|r[uú]t\s*x[aă]m|gieo\s*qu[eẻ]/;
-const xamCredits = new Map(), xamAsked = new Map();
+const xamDrawn = new Set(), xamAsked = new Map();
 const wantsXam = text => XAM_RE.test(String(text).toLowerCase().normalize('NFC'));
 function sendXam(v){
   const no = Math.floor(Math.random() * XAM.length), x = XAM[no];
@@ -105,16 +104,10 @@ function sendXam(v){
 }
 function onXamAsk(v){
   if (!settings.xamOn) return;
-  const n = xamCredits.get(v.id) || 0;
-  if (n > 0){ xamCredits.set(v.id, n - 1); return sendXam(v); }
+  if (!xamDrawn.has(v.id)){ xamDrawn.add(v.id); return sendXam(v); }
   const before = xamAsked.get(v.id) || 0;
   xamAsked.set(v.id, Date.now()); if (xamAsked.size > 5000) xamAsked.clear();
-  if (Date.now() - before > 30_000) broadcast({ t:'hint', id: v.id, text: '🎋 Ghi Công Đức để được xin Xăm' });
-}
-function xamOnGift(v){
-  if (!settings.xamOn) return;
-  if (Date.now() - (xamAsked.get(v.id) || 0) < 180_000){ xamAsked.delete(v.id); return sendXam(v); }
-  xamCredits.set(v.id, Math.min(3, (xamCredits.get(v.id) || 0) + 1)); if (xamCredits.size > 5000) xamCredits.clear();
+  if (Date.now() - before > 30_000) broadcast({ t:'hint', id: v.id, text: '🎋 Mỗi người chỉ xin Xăm 1 lần' });
 }
 
 function pub(v){ return { id:v.id, name:v.name, skin:v.skin, avatar:v.avatar||'', coins:v.coins }; }
@@ -196,7 +189,6 @@ function onGift(id, name, giftName, count, diamonds, avatar){
   const prayer = own && !(settings.filterOn && wordFilter.check(v.lastText).bad) ? v.lastText : pickPrayer();
   const tier = coins >= 99 ? 3 : coins >= 10 ? 2 : 1;
   broadcast({ t:'gift', id, name: v.name, giftName, count, coins, total: v.coins, tier, prayer, merit: topMerit() });
-  xamOnGift(v);
 }
 
 function pickPrayer(){
@@ -367,7 +359,7 @@ async function installUpdate(){
 // A normal start ignores the file, so yesterday's crowd never reappears.
 const SESSION_FILE = path.join(__dirname, 'session.json');
 function saveSession(){
-  try { fs.writeFileSync(SESSION_FILE, JSON.stringify({ savedAt: Date.now(), tiktok: wantTikTok, viewers: [...viewers.values()], xam: [...xamCredits] })); }
+  try { fs.writeFileSync(SESSION_FILE, JSON.stringify({ savedAt: Date.now(), tiktok: wantTikTok, viewers: [...viewers.values()], xam: [...xamDrawn] })); }
   catch (e) { addLog('Không lưu được danh sách bồ đoàn: ' + e.message); }
 }
 function restoreSession(){
@@ -379,7 +371,7 @@ function restoreSession(){
       coins: merit.get(id)?.coins || 0, joinedAt: +p.joinedAt || Date.now(), lastAt: +p.lastAt || Date.now(),
       lastText: String(p.lastText || '').slice(0, 200), lastTextAt: +p.lastTextAt || 0 });
   }
-  for (const [id, n] of Array.isArray(s.xam) ? s.xam.slice(0, 5000) : []) if (typeof id === 'string') xamCredits.set(id.slice(0, 100), clamp(n, 0, 3));
+  for (const id of Array.isArray(s.xam) ? s.xam.slice(0, 5000) : []) if (typeof id === 'string') xamDrawn.add(id.slice(0, 100));
   if (viewers.size){ broadcast(snapshot()); addLog(`↩︎ Đã đưa ${viewers.size} người về lại bồ đoàn sau khi cập nhật`); }
   if (s.tiktok) connectTikTok(String(s.tiktok).slice(0, 60));
 }

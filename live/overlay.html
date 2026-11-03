@@ -120,7 +120,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
     <div><i>🧘</i><span>Gõ <b>nam · nữ · sư · ni · tiểu · bà · cao tăng</b> để đổi hình</span></div>
     <div><i>🙏</i><span>Gõ <b>thắp nhang</b> để lên bàn thờ dâng hương</span></div>
     <div><i>🎁</i><span>Tặng quà được <b>ghi tên hồi hướng</b></span></div>
-    <div><i>🎋</i><span>Ghi <b>Công Đức</b> rồi gõ <b>xin xăm</b> để xin một quẻ</span></div>
+    <div><i>🎋</i><span>Gõ <b>xin xăm</b> để xin một quẻ (mỗi người 1 lần)</span></div>
   </div>
   <div id="merit" class="card ui"><h3>✦ Công Đức ✦</h3><ol id="meritList"><li class="empty">Chưa có</li></ol></div>
   <div id="enters" class="ui" aria-live="polite"></div>
@@ -198,7 +198,7 @@ function removeVisitor(id){ visitors.delete(id); reseat(); }
 // Two spots: anyone else waits in line (at most 8 waiting).
 // A gift sends the giver up the same way, ahead of the incense line: a flower gift offers a lotus on the altar, any other
 // gift offers incense, and the camera zooms in on them while they bow (see camera()). Only gifts get the close-up:
-// "thắp nhang" from the chat never zooms. "Xin xăm" (paid by a gift on the server) goes up the same way, shakes the
+// "thắp nhang" from the chat never zooms. "Xin xăm" (once per viewer, checked on the server) goes up the same way, shakes the
 // fortune tube and shows the stick it drew (kind 'xam', with the drawn stick in xam).
 const ALTAR = { y: 1175, spots: [445, 635], censerX: 540, censerY: 968 };
 const altarBusy = [null, null], incenseQ = [], sticks = [];   // incenseQ: { id, kind:'incense'|'flower'|'xam', gift, xam } · sticks: offerings on the altar
