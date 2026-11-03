@@ -287,6 +287,250 @@ function peakFront(g, t, dt, a, st){
   g.restore();
 }
 
+/* ---------------- helpers shared by the scenes below ---------------- */
+// Branching tree: each limb is a tapered, slightly bent polygon; tip(x, y, angle) is called at the ends for leaves or flowers.
+function tree(g, r, x, y, ang, len, w, depth, col, tip){
+  const x1 = x + Math.cos(ang)*len, y1 = y + Math.sin(ang)*len, nx = -Math.sin(ang), ny = Math.cos(ang), w1 = w*.66;
+  const bend = (r()-.5)*len*.3, mx = (x+x1)/2 + nx*bend, my = (y+y1)/2 + ny*bend;
+  g.fillStyle = col; g.beginPath();
+  g.moveTo(x+nx*w/2, y+ny*w/2); g.quadraticCurveTo(mx+nx*(w+w1)/4, my+ny*(w+w1)/4, x1+nx*w1/2, y1+ny*w1/2);
+  g.lineTo(x1-nx*w1/2, y1-ny*w1/2); g.quadraticCurveTo(mx-nx*(w+w1)/4, my-ny*(w+w1)/4, x-nx*w/2, y-ny*w/2); g.closePath(); g.fill();
+  if (depth <= 0){ tip(x1, y1, ang); return; }
+  const n = r() < .3 ? 3 : 2;
+  for (let i=0;i<n;i++) tree(g, r, x1, y1, ang + (i-(n-1)/2)*(.45+r()*.4) + (r()-.5)*.3, len*(.66+r()*.2), w1, depth-1, col, tip);
+  if (depth < 3 && r() < .6) tip(x1, y1, ang);
+}
+// paving in perspective: columns converge on (540, vy), rows get deeper towards the bottom; c0/c1 = rgb at the back/front
+function paving(g, r, top, vy, colW, nRows, c0, c1, joint){
+  const lx = (xb, y) => 540 + (xb-540)*((y-vy)/(H-vy));
+  const rows = [top]; for (let i=1;i<=nRows;i++) rows.push(top + (H-top)*Math.pow(i/nRows, 1.5));
+  const n = Math.ceil(700/colW);
+  g.fillStyle = joint; g.fillRect(0, top, W, H-top);
+  for (let i=0;i<nRows;i++) for (let j=-n;j<n;j++){
+    const y0 = rows[i], y1 = rows[i+1], off = i%2 ? colW/2 : 0, xa = 540+j*colW+off, xb = xa+colW, l = .9+r()*.16, k = i/nRows;
+    const c = c0.map((v,m) => (v + (c1[m]-v)*k)*l | 0);
+    g.fillStyle = `rgb(${c})`;
+    g.beginPath(); g.moveTo(lx(xa,y0)+1.5, y0+1.5); g.lineTo(lx(xb,y0)-1.5, y0+1.5); g.lineTo(lx(xb,y1)-1.5, y1-1.5); g.lineTo(lx(xa,y1)+1.5, y1-1.5); g.closePath(); g.fill();
+  }
+}
+// pagoda roof: ridge at y, eaves w wide and h below, corners curling up
+function roof(g, cx, y, w, h, tile, snow){
+  const hw = w/2, path = (dy) => { g.beginPath(); g.moveTo(cx-hw*.5, y); g.lineTo(cx+hw*.5, y);
+    g.quadraticCurveTo(cx+hw*.78, y+h*.85, cx+hw+26, y+h-26+dy); g.quadraticCurveTo(cx+hw-6, y+h-4, cx+hw-22, y+h);
+    g.lineTo(cx-hw+22, y+h); g.quadraticCurveTo(cx-hw+6, y+h-4, cx-hw-26, y+h-26+dy); g.quadraticCurveTo(cx-hw*.78, y+h*.85, cx-hw*.5, y); g.closePath(); };
+  g.fillStyle = tile; path(0); g.fill();
+  g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = 2;
+  for (let i=1;i<14;i++){ const u = i/14-.5; g.beginPath(); g.moveTo(cx+u*hw*1.0, y+3); g.lineTo(cx+u*(w-40), y+h-4); g.stroke(); }
+  g.fillStyle = '#1a1a24'; g.fillRect(cx-hw*.52, y-9, hw*1.04, 11);
+  if (snow){ g.save(); path(0); g.clip(); g.fillStyle = vgrad(g, y, y+h, [[0,'#f4f7ff'],[.55,'#dfe7f7'],[.56,'rgba(220,230,250,0)']]); g.fillRect(cx-hw-40, y-12, w+80, h+12); g.restore();
+    g.fillStyle = '#f4f7ff'; g.fillRect(cx-hw*.53, y-15, hw*1.06, 8); }
+}
+function falling(st, key, n, make){ const a = st[key] ||= []; while (a.length < n) a.push(make(true)); return a; }
+
+/* ---------------- bodhi tree at sunset ---------------- */
+function bodhiLeaf(g, x, y, s, ang){
+  g.save(); g.translate(x, y); g.rotate(ang); g.scale(s, s);
+  g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(-13, -2, -13, 15, 0, 30); g.bezierCurveTo(13, 15, 13, -2, 0, 0); g.fill(); g.restore();
+}
+function paintBodhi(g, img){
+  const r = rng(808);
+  g.fillStyle = vgrad(g, 0, 1010, [[0,'#2e2450'],[.35,'#93507a'],[.62,'#ee8758'],[.82,'#ffc46e'],[1,'#ffe6ac']]); g.fillRect(0, 0, W, 1010);
+  g.fillStyle = rgrad(g, 540, 930, 40, 700, [[0,'rgba(255,240,190,.95)'],[.25,'rgba(255,200,120,.45)'],[1,'rgba(255,150,90,0)']]); g.fillRect(0, 0, W, 1100);
+  ridge(g, r, 920, 22, '#8a4f68', 30);
+  for (const [x, k] of [[180,1],[905,.8]]){                                     // far stupas on the plain
+    g.fillStyle = '#6e3c56'; ell(g, x, 905-26*k, 26*k, 22*k); g.fill(); g.fillRect(x-30*k, 900-8*k, 60*k, 12*k);
+    g.beginPath(); g.moveTo(x-5*k, 880-30*k); g.lineTo(x, 880-78*k); g.lineTo(x+5*k, 880-30*k); g.fill(); }
+  ridge(g, r, 965, 14, '#5e3450', 24);
+  // meadow
+  g.fillStyle = vgrad(g, 990, H, [[0,'#a88a3e'],[.25,'#6e6a2c'],[1,'#2a2a12']]); g.fillRect(0, 990, W, H-990);
+  g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = rgrad(g, 540, 1000, 10, 700, [[0,'rgba(255,200,110,.45)'],[1,'rgba(255,170,80,0)']]); g.fillRect(0, 990, W, 930); g.restore();
+  g.save(); g.scale(1, .7); g.fillStyle = rgrad(g, 540, 1520/.7, 60, 560, [[0,'rgba(110,78,40,.5)'],[1,'rgba(110,78,40,0)']]); g.fillRect(0, 1000/.7, W, 920/.7); g.restore();   // trodden earth where people sit
+  for (let i=0;i<500;i++){ const y = 1000+r()*920, s = .4+(y-1000)/700, x = r()*W;
+    g.strokeStyle = r()<.5 ? 'rgba(200,170,80,.5)' : 'rgba(60,70,24,.6)'; g.lineWidth = 1.5*s;
+    g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x+(r()-.5)*8*s, y-8*s, x+(r()-.5)*10*s, y-(10+r()*14)*s); g.stroke(); }
+  // the tree: trunk and roots behind the statue, canopy over the whole top
+  const bark = vgrad(g, 300, 1040, [[0,'#2b1a12'],[1,'#3d2618']]);
+  g.fillStyle = bark; g.beginPath(); g.moveTo(300, 1040); g.bezierCurveTo(430, 980, 450, 760, 470, 430); g.lineTo(610, 430); g.bezierCurveTo(630, 760, 650, 980, 780, 1040); g.closePath(); g.fill();
+  g.fillStyle = 'rgba(255,170,90,.25)'; g.beginPath(); g.moveTo(735, 1030); g.bezierCurveTo(630, 960, 615, 760, 604, 430); g.lineTo(612, 430); g.bezierCurveTo(628, 760, 650, 970, 770, 1036); g.fill();
+  const leaves = [];
+  for (const [x, y, a, len, w] of [[540,450,-1.57,150,120],[520,470,-2.5,230,70],[560,470,-.64,230,70],[500,520,-2.95,260,52],[580,520,-.2,260,52]])
+    tree(g, r, x, y, a, len, w, 4, '#2e1d14', (tx, ty) => leaves.push([tx, ty]));
+  for (const [x, y] of leaves) for (let i=0;i<26;i++){
+    const lx = x+(r()-.5)*150, ly = y+(r()-.5)*90, rim = ly > 380 && r() < .4;
+    g.fillStyle = rim ? (r()<.5 ? '#b69032' : '#8c8a2c') : ['#1c3418','#24421e','#2f5424','#1f3a1a'][i%4];
+    bodhiLeaf(g, lx, ly, .9+r()*.7, (r()-.5)*1.4);
+  }
+  altar(g, img.buddha, { stone:['#5a4438','#8a6c58','#c8a68a'], table:['#4a3428','#6e5040','#a07c62','#e2b04f'], cloth:true });
+  vignette(g, .35);
+}
+function bodhiFront(g, t, dt, a, st){
+  const fall = falling(st, 'l', 7, first => ({ x:Math.random()*W, y:first ? Math.random()*H : -40, vy:40+Math.random()*30, ph:Math.random()*TAU, s:.8+Math.random()*.5 }));
+  g.save(); g.globalAlpha = a;
+  fall.forEach((l, i) => { l.y += l.vy*dt; l.x += Math.sin(t*1.2+l.ph)*30*dt; if (l.y > H+40) fall[i] = { ...l, y:-40, x:Math.random()*W };
+    g.fillStyle = i%2 ? '#c9a23a' : '#7d8a2e'; bodhiLeaf(g, l.x, l.y, l.s, Math.sin(t*2+l.ph)*.9); });
+  g.globalCompositeOperation = 'lighter';
+  for (let i=0;i<16;i++){ const x = (i*197 + t*10) % W, y = 700 + (i*263 % 1000) + Math.sin(t*.8+i)*24;
+    g.globalAlpha = a*(.25+.25*Math.sin(t*1.5+i)); g.fillStyle = '#ffe2a0'; ell(g, x, y, 2.4, 2.4); g.fill(); }
+  g.restore();
+}
+
+/* ---------------- snowy temple courtyard at dusk ---------------- */
+function snowPine(g, r, x, y, h){
+  g.fillStyle = '#3a2a20'; g.fillRect(x-6, y-h*.2, 12, h*.2);
+  for (let i=0;i<5;i++){ const k = i/5, w = h*(.3-k*.05), ty = y-h*.15-k*h*.8, tier = h*.3;
+    g.fillStyle = '#16302a'; g.beginPath(); g.moveTo(x, ty-tier); g.lineTo(x+w, ty); g.lineTo(x-w, ty); g.closePath(); g.fill();
+    g.fillStyle = '#eef3ff'; g.beginPath(); g.moveTo(x, ty-tier); g.lineTo(x+w*.55, ty-tier*.45); g.quadraticCurveTo(x, ty-tier*.3, x-w*.6, ty-tier*.4); g.closePath(); g.fill(); }
+}
+const SNOW_WINDOWS = [[300,880],[390,880],[690,880],[780,880]];
+function paintSnow(g, img){
+  const r = rng(1225);
+  g.fillStyle = vgrad(g, 0, 1000, [[0,'#0b1430'],[.55,'#22325e'],[1,'#56648e']]); g.fillRect(0, 0, W, 1000);
+  for (let i=0;i<120;i++){ g.fillStyle = `rgba(255,255,255,${.2+r()*.5})`; ell(g, r()*W, r()*600, .9, .9); g.fill(); }
+  ridge(g, r, 760, 60, '#3e4c78', 34);
+  g.fillStyle = 'rgba(235,242,255,.5)'; for (let i=0;i<40;i++){ ell(g, r()*W, 720+r()*60, 30+r()*50, 6); g.fill(); }
+  ridge(g, r, 830, 30, '#2c385e', 26);
+  // temple hall behind the statue
+  g.fillStyle = '#3a1410'; g.fillRect(200, 800, 680, 210);
+  for (const x of [215, 340, 460, 620, 740, 865]){ g.fillStyle = '#7a1e14'; g.fillRect(x-12, 800, 24, 210); g.fillStyle = '#a3321e'; g.fillRect(x-12, 800, 6, 210); }
+  for (const [x, y] of SNOW_WINDOWS){ g.fillStyle = '#ffb766'; g.fillRect(x-40, y-50, 80, 100);
+    g.strokeStyle = '#5a1e10'; g.lineWidth = 4; for (let i=1;i<4;i++){ g.beginPath(); g.moveTo(x-40+i*20, y-50); g.lineTo(x-40+i*20, y+50); g.stroke(); g.beginPath(); g.moveTo(x-40, y-50+i*25); g.lineTo(x+40, y-50+i*25); g.stroke(); } }
+  roof(g, 540, 735, 880, 80, '#262636', true);
+  g.fillStyle = '#3a1410'; g.fillRect(330, 650, 420, 90);
+  roof(g, 540, 600, 560, 70, '#262636', true);
+  // pines on both sides
+  for (const [x, y, h] of [[40,1080,560],[150,1030,380],[1040,1080,560],[930,1030,380]]) snowPine(g, r, x, y, h);
+  // snowy courtyard, path swept clear
+  g.fillStyle = vgrad(g, 1000, H, [[0,'#cfd9ee'],[.5,'#b5c2de'],[1,'#8592b4']]); g.fillRect(0, 1000, W, H-1000);
+  for (let i=0;i<260;i++){ const y = 1000+r()*920, s = .4+(y-1000)/700; g.fillStyle = r()<.5 ? 'rgba(255,255,255,.16)' : 'rgba(110,125,170,.08)'; ell(g, r()*W, y, (30+r()*80)*s, (5+r()*9)*s); g.fill(); }
+  g.fillStyle = vgrad(g, 1190, H, [[0,'rgba(127,138,166,.55)'],[1,'rgba(90,101,132,.7)']]);
+  g.beginPath(); g.moveTo(500, 1190); g.lineTo(580, 1190); g.lineTo(680, H); g.lineTo(400, H); g.closePath(); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.45)'; for (let y=1200; y<H; y += 40+(y-1190)*.08){ const k = (y-1190)/730; g.fillRect(500-k*100, y, 80+k*200, 2+k*2); }
+  g.save(); g.globalCompositeOperation = 'lighter'; g.fillStyle = rgrad(g, 540, 960, 30, 520, [[0,'rgba(255,170,90,.35)'],[1,'rgba(255,150,80,0)']]); g.fillRect(0, 700, W, 800); g.restore();
+  for (const [x, y, k] of PEAK_LANTERNS){ stoneLantern(g, x, y, k); g.fillStyle = '#f4f7ff'; g.beginPath(); g.moveTo(x-50*k, y-150*k); g.quadraticCurveTo(x, y-200*k, x+50*k, y-150*k); g.fill(); }
+  altar(g, img.buddha, { stone:['#4a5068','#747a94','#c4cadc'], table:['#3f120a','#6e1d10','#94301c','#d9a443'], cloth:false });
+  g.fillStyle = '#f4f7ff'; g.fillRect(405, 897, 270, 5); g.fillRect(420, 781, 240, 5);                     // snow on the plinth
+  vignette(g, .4);
+}
+function snowBack(g, t, dt, a, st){
+  g.save(); g.globalCompositeOperation = 'lighter';
+  for (const [x, y] of SNOW_WINDOWS){ g.globalAlpha = a*(.35+.1*Math.sin(t*5+x)*Math.sin(t*7.3)); g.fillStyle = rgrad(g, x, y, 10, 110, [[0,'rgba(255,180,90,.8)'],[1,'rgba(255,140,60,0)']]); g.fillRect(x-110, y-110, 220, 220); }
+  for (const [x, y, k] of PEAK_LANTERNS){ g.globalAlpha = a*.6*(.85+.15*Math.sin(t*8+x)); g.fillStyle = rgrad(g, x, y-128*k, 2, 80*k, [[0,'rgba(255,200,110,1)'],[1,'rgba(255,140,60,0)']]); g.fillRect(x-80*k, y-208*k, 160*k, 160*k); }
+  g.restore();
+}
+function snowFront(g, t, dt, a, st){
+  const flakes = falling(st, 'f', 140, first => { const z = Math.random(); return { x:Math.random()*W, y:first ? Math.random()*H : -10, z, ph:Math.random()*TAU }; });
+  g.save(); g.fillStyle = '#ffffff';
+  for (const f of flakes){ f.y += (40+f.z*110)*dt; f.x += (Math.sin(t*.9+f.ph)*20 + 12)*dt*(.5+f.z);
+    if (f.y > H+10){ f.y = -10; f.x = Math.random()*W; } if (f.x > W+10) f.x = -10;
+    g.globalAlpha = a*(.45+.5*f.z); ell(g, f.x, f.y, 1.4+f.z*3.4, 1.4+f.z*3.4); g.fill(); }
+  g.restore();
+}
+
+/* ---------------- waterfall in the mountains ---------------- */
+function cliff(g, r, pts, c){
+  g.fillStyle = vgrad(g, 0, 1100, [[0,c[0]],[1,c[1]]]); g.beginPath(); g.moveTo(...pts[0]); for (const p of pts.slice(1)) g.lineTo(...p); g.closePath(); g.fill();
+  g.strokeStyle = 'rgba(20,26,24,.35)'; g.lineWidth = 3;
+  const xs = pts.map(p => p[0]), x0 = Math.min(...xs), x1 = Math.max(...xs);
+  for (let i=0;i<26;i++){ const x = x0+r()*(x1-x0), y = 150+r()*850; g.beginPath(); g.moveTo(x, y); g.lineTo(x+(r()-.5)*40, y+30+r()*70); g.stroke(); }
+  for (let i=0;i<26;i++){ const x = x0+r()*(x1-x0), y = 120+r()*900; for (let j=0;j<9;j++){ g.fillStyle = r()<.5 ? 'rgba(62,112,52,.55)' : 'rgba(96,146,66,.5)'; ell(g, x+(r()-.5)*50, y+(r()-.5)*24, 5+r()*12, 3+r()*6); g.fill(); } }
+}
+const FALL = { x0:440, x1:640, top:170, bot:930 };
+function paintFall(g, img){
+  const r = rng(3131);
+  g.fillStyle = vgrad(g, 0, 700, [[0,'#7fbfe8'],[1,'#e2f2fa']]); g.fillRect(0, 0, W, 1000);
+  ridge(g, r, 420, 50, '#9db8c8', 30);
+  // the falls between two cliffs, pool at the foot
+  g.fillStyle = vgrad(g, FALL.top, FALL.bot, [[0,'#dff3fb'],[1,'#ffffff']]);
+  g.beginPath(); g.moveTo(FALL.x0+30, FALL.top); g.lineTo(FALL.x1-30, FALL.top); g.lineTo(FALL.x1+20, FALL.bot); g.lineTo(FALL.x0-20, FALL.bot); g.closePath(); g.fill();
+  for (let i=0;i<70;i++){ const x = FALL.x0+r()*(FALL.x1-FALL.x0); g.fillStyle = `rgba(120,170,200,${.15+r()*.25})`; g.fillRect(x, FALL.top+r()*500, 2+r()*3, 60+r()*200); }
+  cliff(g, r, [[-20,140],[180,90],[330,150],[455,160],[430,520],[420,960],[-20,1060]], ['#6e7a70','#3f4a44']);
+  cliff(g, r, [[1100,120],[900,80],[760,140],[625,170],[650,520],[660,960],[1100,1060]], ['#6a766c','#3b4640']);
+  for (const [x, y, s] of [[150,95,1],[300,140,.8],[860,90,1],[980,130,.9]]) tree(g, r, x, y, -1.57, 50*s, 12*s, 3, '#3a2a1e', (tx, ty) => { g.fillStyle = '#2f6a34'; ell(g, tx, ty, 26*s, 18*s); g.fill(); g.fillStyle = '#4f8f44'; ell(g, tx-6*s, ty-6*s, 14*s, 9*s); g.fill(); });
+  g.fillStyle = vgrad(g, 900, 1040, [[0,'#5fa7b4'],[1,'#2f6f7e']]); g.beginPath(); g.ellipse(540, 960, 400, 70, 0, 0, TAU); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.75)'; for (let i=0;i<40;i++){ ell(g, FALL.x0-20+r()*(FALL.x1-FALL.x0+40), 925+r()*30, 14+r()*26, 6+r()*8); g.fill(); }
+  // rocky riverbank
+  g.fillStyle = vgrad(g, 1000, H, [[0,'#8a8a78'],[.4,'#6b6a58'],[1,'#3a3a2e']]); g.beginPath(); g.moveTo(0, 1030); g.quadraticCurveTo(540, 990, W, 1030); g.lineTo(W, H); g.lineTo(0, H); g.closePath(); g.fill();
+  for (let i=0;i<380;i++){ const y = 1010+r()*910, s = .35+(y-1000)/650, l = .7+r()*.5;
+    g.fillStyle = `rgb(${150*l|0},${146*l|0},${128*l|0})`; ell(g, r()*W, y, (8+r()*26)*s, (4+r()*10)*s); g.fill(); }
+  for (let i=0;i<70;i++){ const y = 1020+r()*900, s = .5+(y-1000)/700, x = r()<.5 ? r()*230 : W-r()*230;
+    g.strokeStyle = r()<.5 ? '#4f8a3e' : '#3a6e30'; g.lineWidth = 2*s;
+    for (let j=0;j<6;j++){ const a = -Math.PI/2 + (j-2.5)*.35; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x+Math.cos(a)*20*s, y+Math.sin(a)*30*s, x+Math.cos(a)*36*s, y+Math.sin(a)*34*s+10*s); g.stroke(); } }
+  // flat stone where the altar stands
+  g.fillStyle = '#5e5d50'; ell(g, 540, 1120, 380, 95); g.fill(); g.fillStyle = vgrad(g, 1020, 1200, [[0,'#a8a690'],[1,'#8a8874']]); ell(g, 540, 1108, 372, 86); g.fill();
+  altar(g, img.buddha, { stone:['#55574c','#86887a','#c2c4b2'], table:['#4f5046','#7a7c6c','#aeb09c','#d2b46a'], cloth:true });
+  vignette(g, .3);
+}
+function fallBack(g, t, dt, a, st){
+  g.save(); g.globalAlpha = a; g.fillStyle = 'rgba(255,255,255,.55)';
+  for (let i=0;i<34;i++){ const x = FALL.x0 + ((i*53) % (FALL.x1-FALL.x0)), len = 80+(i*37 % 120), y = FALL.top + ((t*(380+(i%5)*40) + i*97) % (FALL.bot-FALL.top+len)) - len;
+    const k = (Math.min(FALL.bot, Math.max(FALL.top, y)) - FALL.top)/(FALL.bot-FALL.top), xx = x + (x-540)*k*.25;
+    g.fillRect(xx, Math.max(FALL.top, y), 3, Math.min(len, FALL.bot-Math.max(FALL.top, y))); }
+  for (let i=0;i<9;i++){ const x = FALL.x0-60 + ((i*41 + t*14*(i%2?1:-1)) % 320 + 320) % 320, y = 900 - ((t*12 + i*30) % 90);
+    g.globalAlpha = a*.5*(1-(900-y)/90); g.fillStyle = rgrad(g, x, y, 4, 60, [[0,'rgba(255,255,255,.9)'],[1,'rgba(255,255,255,0)']]); g.fillRect(x-60, y-60, 120, 120); }
+  g.restore();
+}
+function fallFront(g, t, dt, a, st){
+  g.save(); g.globalAlpha = a;
+  for (let i=0;i<3;i++){ const x = 540 + Math.sin(t*.23+i*2.1)*420 + Math.sin(t*1.1+i)*40, y = 1250 + Math.sin(t*.31+i*1.7)*260, f = Math.abs(Math.sin(t*14+i));
+    g.fillStyle = ['#ffd54a','#8fd0ff','#ffffff'][i];
+    for (const d of [-1,1]){ g.beginPath(); g.ellipse(x+d*7*f, y, 8*f+1, 6, d*.4, 0, TAU); g.fill(); } g.fillStyle = '#2a2a2a'; g.fillRect(x-1, y-5, 2, 10); }
+  g.restore();
+}
+
+/* ---------------- spring courtyard with yellow apricot blossom (mai vàng) ---------------- */
+function blossom(g, x, y, s, rot){
+  g.fillStyle = '#ffd23a'; for (let i=0;i<5;i++){ const a = rot + i*TAU/5; ell(g, x+Math.cos(a)*s*.55, y+Math.sin(a)*s*.55, s*.5, s*.5); g.fill(); }
+  g.fillStyle = '#e8801a'; ell(g, x, y, s*.26, s*.26); g.fill();
+}
+const SPRING_LANTERNS = [[110,430],[250,500],[830,500],[970,430]];
+function paintSpring(g, img){
+  const r = rng(2026);
+  g.fillStyle = vgrad(g, 0, 950, [[0,'#86c2e8'],[.6,'#cfe8f2'],[1,'#fdf3da']]); g.fillRect(0, 0, W, 1000);
+  g.fillStyle = 'rgba(255,255,255,.8)'; for (const [x,y,w] of [[260,360,140],[820,300,170],[560,420,110]]) for (let i=0;i<6;i++){ ell(g, x+(i-2.5)*w*.3, y+(i%2)*8, w*.35, w*.18); g.fill(); }
+  ridge(g, r, 820, 40, '#9cc08a', 30); ridge(g, r, 880, 26, '#7ea86c', 26);
+  // temple wall with a tiled cap behind the altar
+  g.fillStyle = vgrad(g, 900, 1010, [[0,'#efe2c4'],[1,'#d8c6a0']]); g.fillRect(0, 905, W, 105);
+  g.fillStyle = '#9a3a22'; g.fillRect(0, 888, W, 22); g.fillStyle = '#7a2a16'; for (let x=0;x<W;x+=18) g.fillRect(x, 888, 3, 22);
+  for (let x=60;x<W;x+=160){ g.fillStyle = 'rgba(120,80,40,.35)'; g.fillRect(x, 935, 50, 50); g.strokeStyle = '#b08850'; g.lineWidth = 3; g.beginPath(); g.arc(x+25, 960, 16, 0, TAU); g.stroke(); }
+  // brick courtyard (gạch Bát Tràng)
+  paving(g, r, 1010, 260, 120, 12, [196,104,70], [150,70,46], '#7a3a24');
+  g.fillStyle = vgrad(g, 1010, H, [[0,'rgba(255,230,180,.15)'],[1,'rgba(40,10,0,.35)']]); g.fillRect(0, 1010, W, H-1010);
+  // potted chrysanthemums along the front sides
+  for (const [x, y, k] of [[70,1560,1],[1010,1560,1],[150,1280,.75],[930,1280,.75]]){
+    g.fillStyle = '#2f6a30'; ell(g, x, y-110*k, 70*k, 46*k); g.fill();
+    for (let i=0;i<22;i++){ const a = r()*TAU, d = r()*60*k; g.fillStyle = r()<.5 ? '#ffc21a' : '#ffdb4d'; ell(g, x+Math.cos(a)*d, y-110*k+Math.sin(a)*d*.6-10*k, 10*k, 10*k); g.fill(); }
+    g.fillStyle = vgrad(g, y-70*k, y, [[0,'#3a5fa0'],[1,'#22386a']]); g.beginPath(); g.moveTo(x-48*k, y-70*k); g.lineTo(x+48*k, y-70*k); g.lineTo(x+34*k, y); g.lineTo(x-34*k, y); g.closePath(); g.fill();
+    g.fillStyle = '#e8eef8'; g.fillRect(x-44*k, y-58*k, 88*k, 8*k);
+  }
+  // two apricot trees framing the top
+  const flowers = [];
+  tree(g, r, -10, 1100, -1.2, 330, 46, 5, '#3a2416', (x, y) => flowers.push([x, y]));
+  tree(g, r, 1090, 1100, -1.94, 330, 46, 5, '#3a2416', (x, y) => flowers.push([x, y]));
+  for (const [x, y] of flowers){ if (y > 1000) continue; for (let i=0;i<7;i++){ const bx = x+(r()-.5)*70, by = y+(r()-.5)*50;
+    if (r() < .2){ g.fillStyle = '#6a8a2a'; ell(g, bx, by, 4, 6); g.fill(); } else blossom(g, bx, by, 7+r()*5, r()*TAU); } }
+  altar(g, img.buddha, { stone:['#7a6a58','#a89480','#e0ceb4'], table:['#5a160c','#8a2414','#b0381e','#e2b04f'], cloth:false });
+  vignette(g, .25);
+}
+function springBack(g, t, dt, a, st){
+  g.save(); g.globalAlpha = a;
+  SPRING_LANTERNS.forEach(([x, y], i) => {
+    const sw = Math.sin(t*1.1+i*1.3)*.06; g.save(); g.translate(x, y-70); g.rotate(sw);
+    g.strokeStyle = '#3a2416'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, 40); g.stroke();
+    g.fillStyle = '#d4261a'; ell(g, 0, 80, 32, 40); g.fill(); g.fillStyle = 'rgba(255,200,120,.35)'; ell(g, -8, 74, 12, 30); g.fill();
+    g.fillStyle = '#e2b04f'; g.fillRect(-18, 38, 36, 6); g.fillRect(-18, 116, 36, 6);
+    g.strokeStyle = '#d4261a'; g.lineWidth = 3; for (let j=-2;j<=2;j++){ g.beginPath(); g.moveTo(j*4, 122); g.lineTo(j*5, 150+Math.sin(t*2+j)*2); g.stroke(); }
+    g.restore(); });
+  g.restore();
+}
+function springFront(g, t, dt, a, st){
+  const fall = falling(st, 'p', 14, first => ({ x:Math.random()*W, y:first ? Math.random()*H : -20, vy:45+Math.random()*35, ph:Math.random()*TAU, s:5+Math.random()*4 }));
+  g.save(); g.globalAlpha = a;
+  fall.forEach((p, i) => { p.y += p.vy*dt; p.x += (Math.sin(t*1.3+p.ph)*35 + 10)*dt; if (p.y > H+20){ p.y = -20; p.x = Math.random()*W; }
+    if (i%3) { g.fillStyle = '#ffd23a'; g.save(); g.translate(p.x, p.y); g.rotate(t*2+p.ph); ell(g, 0, 0, p.s*.6, p.s*.35); g.fill(); g.restore(); }
+    else blossom(g, p.x, p.y, p.s, t+p.ph); });
+  g.restore();
+}
+
 /* ---------------- shared live bits ---------------- */
 // candle flames on the painted altars (the hall painting has its own)
 function flames(g, t, a){
@@ -304,6 +548,10 @@ const SCENES = {
   bamboo: { name:'Rừng trúc', icon:'🎋', image:'bamboo', front:bambooFront, cushion:['#4a3a22','#8a7448','#b59d6a'] },
   lotus:  { name:'Hồ sen đêm trăng', icon:'🌕', paint:paintLotus, back:lotusBack, front:lotusFront, cushion:['#3a120c','#7a2a1a','#a8442a'] },
   peak:   { name:'Đỉnh núi bình minh', icon:'🌄', paint:paintPeak, back:peakBack, front:peakFront, cushion:['#6a3410','#b5652a','#e39a52'] },
+  bodhi:  { name:'Cội Bồ Đề hoàng hôn', icon:'🌳', paint:paintBodhi, front:bodhiFront, cushion:['#4a2a14','#8a5a2a','#c08a4a'] },
+  snow:   { name:'Sân chùa tuyết', icon:'❄️', paint:paintSnow, back:snowBack, front:snowFront, cushion:['#3a1a3a','#6a3060','#9a5088'] },
+  fall:   { name:'Thác nước', icon:'💧', paint:paintFall, back:fallBack, front:fallFront, cushion:['#2a3a2a','#4a6a44','#7a9a6a'] },
+  spring: { name:'Mai vàng ngày xuân', icon:'🌼', paint:paintSpring, back:springBack, front:springFront, cushion:['#5a3a06','#b08020','#e8c050'] },
 };
 for (const [id, s] of Object.entries(SCENES)){ s.id = id; s.st = {}; }
 // Painted backdrop for a scene: the hall photo itself, or a 1080×1920 canvas painted once (null until the images load).
@@ -325,5 +573,34 @@ function sceneCushion(g, s, x, y, k, a){
   g.fillStyle = vgrad(g, y-14*k, y+6*k, [[0,c[2]],[1,c[1]]]); ell(g, x, y-4*k, 54*k, 14*k); g.fill();
   g.restore();
 }
-Object.assign(window, { SCENES, sceneBackdrop, sceneBack, sceneFront, sceneCushion });
+/* ---------------- outfits ---------------- */
+// Every character sprite wears grey lay robes (áo lam). Other outfits recolour only those grey pixels, keeping their
+// shading: hair, skin, the book, the cushion and the monk's robe are not grey, so they stay as painted.
+const OUTFITS = {
+  lam:    { name:'Áo lam xám' },
+  blue:   { name:'Áo lam xanh', ramp:['#16263f','#4f78a8','#b9d4f0'] },
+  brown:  { name:'Áo nâu', ramp:['#2e1a0e','#7a4f2c','#d1a070'] },
+  white:  { name:'Áo trắng', ramp:['#6c707c','#c9ccd4','#ffffff'] },
+  yellow: { name:'Áo tràng vàng', ramp:['#5a3a06','#c08a1e','#ffe08a'] },
+  rose:   { name:'Áo hồng phấn', ramp:['#4a1f2c','#b0687c','#f6c6d2'] },
+};
+const hex = c => [1,3,5].map(i => parseInt(c.slice(i, i+2), 16));
+const recolored = new Map();
+// a canvas copy of img in that outfit (cached), or img itself for the original / until the image has loaded
+function outfitImg(img, id){
+  const o = OUTFITS[id]; if (!o?.ramp || !img?.naturalWidth) return img;
+  const key = img.src + '|' + id; let c = recolored.get(key); if (c) return c;
+  c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight;
+  const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+  const d = g.getImageData(0, 0, c.width, c.height), p = d.data, [lo, mid, hi] = o.ramp.map(hex);
+  for (let i = 0; i < p.length; i += 4){
+    if (p[i+3] < 10) continue;
+    const r = p[i], gg = p[i+1], b = p[i+2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b), l = .3*r + .59*gg + .11*b;
+    if (mx - mn > 30 || l < 55 || l > 240 || b < r - 6) continue;
+    const t = Math.min(1, Math.max(0, (l - 60) / 170)), [A, B, k] = t < .5 ? [lo, mid, t*2] : [mid, hi, t*2 - 1];
+    p[i] = A[0] + (B[0]-A[0])*k; p[i+1] = A[1] + (B[1]-A[1])*k; p[i+2] = A[2] + (B[2]-A[2])*k;
+  }
+  g.putImageData(d, 0, 0); recolored.set(key, c); return c;
+}
+Object.assign(window, { SCENES, sceneBackdrop, sceneBack, sceneFront, sceneCushion, OUTFITS, outfitImg });
 })();

@@ -40,9 +40,12 @@ const settings = {
   audioOut: '',                      // overlay sound device name, e.g. "CABLE Input" (empty = Windows default speakers)
   scene: 'hall',                     // backdrop, see live/scenes.js
   sceneAuto: false, sceneEveryMin: 10,
-  sceneCycle: ['hall', 'bamboo', 'lotus', 'peak'],   // scenes the auto switch goes through, in this order
+  sceneOff: [],                      // scenes the auto switch skips (so scenes added later are in the rotation by default)
+  outfits: ['lam'],                  // robes viewers wear, see OUTFITS in live/scenes.js; several = each viewer gets one of them
 };
-const SCENE_NAMES = { hall:'Chánh điện', bamboo:'Rừng trúc', lotus:'Hồ sen đêm trăng', peak:'Đỉnh núi bình minh' }, SCENE_IDS = Object.keys(SCENE_NAMES);
+const SCENE_NAMES = { hall:'Chánh điện', bamboo:'Rừng trúc', lotus:'Hồ sen đêm trăng', peak:'Đỉnh núi bình minh',
+  bodhi:'Cội Bồ Đề hoàng hôn', snow:'Sân chùa tuyết', fall:'Thác nước', spring:'Mai vàng ngày xuân' }, SCENE_IDS = Object.keys(SCENE_NAMES);
+const OUTFIT_IDS = ['lam', 'blue', 'brown', 'white', 'yellow', 'rose'];
 // Settings survive restarts in live/config.json (git-ignored).
 const CONFIG = path.join(__dirname, 'config.json');
 
@@ -210,10 +213,10 @@ let chantIdx = 0, chantTimer = null;
 function chant(){ const text = CHANTS[chantIdx++ % CHANTS.length]; broadcast({ t:'chant', text }); }
 function scheduleChant(){ clearInterval(chantTimer); if (settings.autoChant) chantTimer = setInterval(chant, Math.max(1, settings.chantEveryMin) * 60_000); }
 
-// Auto scene switch: every sceneEveryMin minutes, the next scene of sceneCycle. Picking a scene by hand restarts the wait.
+// Auto scene switch: every sceneEveryMin minutes, the next scene not in sceneOff. Picking a scene by hand restarts the wait.
 let sceneTimer = null, sceneAt = 0;
 function nextScene(){
-  const list = settings.sceneCycle.length ? settings.sceneCycle : SCENE_IDS;
+  const on = SCENE_IDS.filter(id => !settings.sceneOff.includes(id)), list = on.length ? on : SCENE_IDS;
   const next = list[(list.indexOf(settings.scene) + 1) % list.length];
   if (next !== settings.scene){ settings.scene = next; saveSettings(); addLog('🏞 Chuyển cảnh: ' + SCENE_NAMES[next]); }
   scheduleScene(); broadcast({ t:'settings', settings, cap: capacity(), sceneAt });
@@ -434,10 +437,13 @@ const SETTING_RULES = {
   filterMode: v => v === 'mask' ? 'mask' : 'hide', filterStrikes: v => clamp(v, 0, 20), filterExtra: v => String(v).slice(0, 3000),
   audioOut: v => String(v).slice(0, 120),
   scene: v => SCENE_IDS.includes(v) ? v : 'hall', sceneAuto: Boolean, sceneEveryMin: v => clamp(v, 1, 240),
-  sceneCycle: v => SCENE_IDS.filter(id => Array.isArray(v) && v.includes(id)),
+  sceneOff: v => SCENE_IDS.filter(id => Array.isArray(v) && v.includes(id)),
+  outfits: v => { const l = OUTFIT_IDS.filter(id => Array.isArray(v) && v.includes(id)); return l.length ? l : ['lam']; },
 };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, Math.round(+v || 0)));
-function applySettings(o){ for (const [k, fn] of Object.entries(SETTING_RULES)) if (k in o) settings[k] = fn(o[k]); wordFilter.setExtraWords(settings.filterExtra); }
+function applySettings(o){
+  if (Array.isArray(o.sceneCycle) && !('sceneOff' in o)) o = { ...o, sceneOff: ['hall', 'bamboo', 'lotus', 'peak'].filter(id => !o.sceneCycle.includes(id)) };   // config.json from v2026.11.03
+  for (const [k, fn] of Object.entries(SETTING_RULES)) if (k in o) settings[k] = fn(o[k]); wordFilter.setExtraWords(settings.filterExtra); }
 function saveSettings(){ try { fs.writeFileSync(CONFIG, JSON.stringify(settings, null, 2)); } catch (e) { addLog('Không lưu được cài đặt: ' + e.message); } }
 try { applySettings(JSON.parse(fs.readFileSync(CONFIG, 'utf8'))); } catch {}
 scheduleChant(); scheduleScene();

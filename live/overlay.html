@@ -273,6 +273,16 @@ function drawCushions(k){
   }
 }
 
+// settings.outfits: the robes viewers wear (live/scenes.js recolours the sprites). Each viewer keeps one, picked from their
+// id. The granny's brown robe and grey hair, and the monks' robes, stay as painted.
+const KEEP_ROBE = new Set(['granny','monk','master']);
+function look(img, v){
+  if (KEEP_ROBE.has(v.skin)) return img;
+  const list = settings.outfits?.length ? settings.outfits : ['lam'];
+  if (v.hash == null){ let h = 0; for (const ch of String(v.id)) h = (h*31 + ch.charCodeAt(0)) >>> 0; v.hash = h; }
+  return outfitImg(img, list[v.hash % list.length]);
+}
+
 /* ======================= HUD ======================= */
 let startedAt = Date.now();
 function updateCount(){ document.getElementById('count').textContent = visitors.size.toLocaleString('vi-VN'); }
@@ -492,7 +502,7 @@ tryAutoAudio();
 
 /* ======================= render ======================= */
 const ctx=document.getElementById('c').getContext('2d');
-function sprite(im,x,y,s,ay=1){ if(!im?.naturalWidth) return; const w=im.naturalWidth*s,h=im.naturalHeight*s; ctx.drawImage(im,x-w/2,y-h*ay,w,h); }
+function sprite(im,x,y,s,ay=1){ const iw=im?.naturalWidth??im?.width; if(!iw) return; const w=iw*s,h=(im.naturalHeight??im.height)*s; ctx.drawImage(im,x-w/2,y-h*ay,w,h); }
 function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 // Name cut to fit its seat ("…") and its width, remembered: re-measuring every name letter by letter each frame
 // adds up fast in a full hall. ctx.font must already be set for this size.
@@ -627,8 +637,8 @@ function frame(now){
     const breathe = v.state==='sit' ? Math.sin(t*1.1+v.phase)*2*ws : 0, bowK = v.state==='sit' ? Math.sin(Math.min(1,v.bow)*Math.PI)*.04 : v.state==='offer' ? Math.sin(Math.min(1,v.bow)*Math.PI)*.12 : 0;
     ctx.save(); ctx.globalAlpha=v.fade; ctx.translate(v.x,v.y); if (bowK) ctx.transform(1,0,0,1-bowK,0,0);
     let topY;
-    if (anim){ const a=ANIM[v.skin], k=ws*1.05*260/a.seatH; if (v.flip) ctx.scale(-1,1); ctx.drawImage(A['anim_'+v.skin], v.frame*a.fw,0,a.fw,a.fh, -a.fw*k/2, -a.fh*k+breathe, a.fw*k, a.fh*k); topY=(v.state==='sit'?a.seatH:a.fh*.97)*k; }
-    else { const sk = v.skin==='master'?'monk':v.skin; sprite(A[sk]||A.man,0,breathe,ws*1.05); topY=260*ws; }
+    if (anim){ const a=ANIM[v.skin], k=ws*1.05*260/a.seatH; if (v.flip) ctx.scale(-1,1); ctx.drawImage(look(A['anim_'+v.skin], v), v.frame*a.fw,0,a.fw,a.fh, -a.fw*k/2, -a.fh*k+breathe, a.fw*k, a.fh*k); topY=(v.state==='sit'?a.seatH:a.fh*.97)*k; }
+    else { const sk = v.skin==='master'?'monk':v.skin; sprite(look(A[sk]||A.man, v),0,breathe,ws*1.05); topY=260*ws; }
     ctx.restore();
     if (v.state==='offer' && !v.planted){                                              // incense (or a lotus) held up in both hands
       const lift=Math.min(1,v.offerT*3), bob=Math.sin(Math.min(1,v.bow)*Math.PI)*28*ws;

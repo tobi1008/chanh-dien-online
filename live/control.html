@@ -136,6 +136,9 @@ button.sm{padding:5px 10px;font-size:12px}
 .scene .cy input{width:auto;accent-color:var(--gold)}
 .scene.on{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
 .scene.on .nm{color:var(--gold2)}
+.outfits{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+.outfits canvas{aspect-ratio:1}
+.outfits .scene.on::before{content:"Đang dùng"}
 .scene.on::before{content:"Đang chiếu";position:absolute;top:6px;left:6px;padding:2px 8px;border-radius:999px;background:var(--gold);color:#2a1405;font-size:11px;font-weight:700;pointer-events:none}
 
 /* toast */
@@ -272,6 +275,11 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
             </div>
           </div>
         </div>
+        <div class="group">
+          <h3>Kiểu áo người xem</h3>
+          <div class="scenes outfits" id="outfits"></div>
+          <p class="hint">Chọn nhiều kiểu thì mỗi người vào xem mặc một kiểu trong số đó. Bà cụ và các sư giữ nguyên áo.</p>
+        </div>
         <div class="cols">
           <div class="group">
             <h3>Bảng tên</h3>
@@ -358,12 +366,12 @@ function drawOuts(){
   sel.replaceChildren(new Option('Loa mặc định của máy',''), ...names.map(n => new Option(outNames.includes(n) ? n : n+' (không thấy)', n)));
   sel.value=savedOut;
 }
-function fillSettings(s){ if (s.audioOut!==undefined){ savedOut=s.audioOut; drawOuts(); } if (s.scene) curScene=s.scene; if (s.sceneCycle) cycle=s.sceneCycle; for (const k of SETTING_IDS){ const el=$(k); if (!el || s[k]===undefined || el===document.activeElement) continue; if (el.type==='checkbox') el.checked=!!s[k]; else el.value=s[k]; } $('brandTitle').textContent=s.title||'Chánh Điện Tịnh Tâm'; drawScenes(); }
-function readSettings(){ const o={}; for (const k of SETTING_IDS){ const el=$(k); o[k] = el.type==='checkbox' ? el.checked : el.type==='number' ? +el.value : el.value; } o.scene=curScene; o.sceneCycle=SCENE_ORDER.filter(id=>cycle.includes(id)); return o; }
+function fillSettings(s){ if (s.audioOut!==undefined){ savedOut=s.audioOut; drawOuts(); } if (s.scene) curScene=s.scene; if (s.sceneOff) sceneOff=s.sceneOff; if (s.outfits) outfits=s.outfits; for (const k of SETTING_IDS){ const el=$(k); if (!el || s[k]===undefined || el===document.activeElement) continue; if (el.type==='checkbox') el.checked=!!s[k]; else el.value=s[k]; } $('brandTitle').textContent=s.title||'Chánh Điện Tịnh Tâm'; drawScenes(); drawOutfits(); }
+function readSettings(){ const o={}; for (const k of SETTING_IDS){ const el=$(k); o[k] = el.type==='checkbox' ? el.checked : el.type==='number' ? +el.value : el.value; } o.scene=curScene; o.sceneOff=sceneOff; o.outfits=OUTFIT_ORDER.filter(id=>outfits.includes(id)); return o; }
 for (const k of SETTING_IDS) $(k).addEventListener('change', () => { if (send('settings', { settings: readSettings() })) toast('Đã lưu cài đặt'); });
 
 /* scenes */
-const SCENE_ORDER=Object.keys(SCENES); let curScene='hall', cycle=[...SCENE_ORDER], sceneAt=0;
+const SCENE_ORDER=Object.keys(SCENES); let curScene='hall', sceneOff=[], sceneAt=0;
 const saveScenes=()=>send('settings', { settings: readSettings() });
 const sceneCards=SCENE_ORDER.map(id=>{
   const s=SCENES[id], card=document.createElement('div'); card.className='scene';
@@ -372,16 +380,16 @@ const sceneCards=SCENE_ORDER.map(id=>{
   const nm=document.createElement('span'); nm.className='nm'; nm.textContent=s.icon+' '+s.name; b.append(cv,nm);
   b.onclick=()=>{ if (curScene===id) return; curScene=id; drawScenes(); if (saveScenes()) toast('Đang chuyển sang '+s.name); };
   const cy=document.createElement('label'); cy.className='cy'; const ck=document.createElement('input'); ck.type='checkbox';
-  ck.onchange=()=>{ cycle = ck.checked ? [...cycle, id] : cycle.filter(x=>x!==id); if (saveScenes()) toast('Đã lưu cài đặt'); drawScenes(); };
+  ck.onchange=()=>{ sceneOff = ck.checked ? sceneOff.filter(x=>x!==id) : [...sceneOff, id]; if (saveScenes()) toast('Đã lưu cài đặt'); drawScenes(); };
   cy.append(ck, 'tự chuyển'); card.append(b, cy); $('scenes').append(card);
   return { id, card, ck, cv, b };
 });
 function drawScenes(){
-  for (const c of sceneCards){ c.card.classList.toggle('on', c.id===curScene); c.ck.checked=cycle.includes(c.id); c.b.setAttribute('aria-pressed', c.id===curScene); }
+  for (const c of sceneCards){ c.card.classList.toggle('on', c.id===curScene); c.ck.checked=!sceneOff.includes(c.id); c.b.setAttribute('aria-pressed', c.id===curScene); }
   drawSceneInfo();
 }
 function drawSceneInfo(){
-  const list = cycle.length ? SCENE_ORDER.filter(id=>cycle.includes(id)) : SCENE_ORDER, next = SCENES[list[(list.indexOf(curScene)+1)%list.length]];
+  const on = SCENE_ORDER.filter(id=>!sceneOff.includes(id)), list = on.length ? on : SCENE_ORDER, next = SCENES[list[(list.indexOf(curScene)+1)%list.length]];
   const left = Math.max(0, Math.round((sceneAt-Date.now())/1000));
   $('sceneInfo').textContent = !$('sceneAuto').checked ? 'Lần lượt qua các cảnh có đánh dấu “tự chuyển”'
     : sceneAt ? `Tiếp theo: ${next.icon} ${next.name} sau ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}` : `Tiếp theo: ${next.icon} ${next.name}`;
@@ -397,6 +405,25 @@ Promise.all(Object.values(thumbImg).map(i=>i.decode().catch(()=>{}))).then(()=>{
     g.clearRect(0,0,1080,1920); g.drawImage(bg,0,0,1080,1920); sceneBack(g, s, 3, 0, 1);
     c.cv.getContext('2d').drawImage(big,0,0,180,320); s.canvas=null;          // the full-size copy isn't needed here
   }, 60*i));
+});
+
+/* outfits: previews recoloured by live/scenes.js */
+const OUTFIT_ORDER=Object.keys(OUTFITS); let outfits=['lam'];
+const outfitCards=OUTFIT_ORDER.map(id=>{
+  const card=document.createElement('label'); card.className='scene';
+  const cv=document.createElement('canvas'); cv.width=200; cv.height=200;
+  const nm=document.createElement('span'); nm.className='cy'; const ck=document.createElement('input'); ck.type='checkbox';
+  ck.onchange=()=>{ const next = ck.checked ? [...outfits, id] : outfits.filter(x=>x!==id);
+    if (!next.length){ ck.checked=true; toast('Cần chọn ít nhất một kiểu áo'); return; }
+    outfits=next; drawOutfits(); if (send('settings', { settings: readSettings() })) toast('Đã lưu cài đặt'); };
+  nm.append(ck, OUTFITS[id].name); card.append(cv, nm); $('outfits').append(card);
+  return { id, card, ck, cv };
+});
+function drawOutfits(){ for (const c of outfitCards){ const on=outfits.includes(c.id); c.ck.checked=on; c.card.classList.toggle('on', on); } }
+const outfitSprites=['c_woman','c_man'].map(n=>{ const i=new Image(); i.src='/assets/'+n+'.png'; return i; });
+Promise.all(outfitSprites.map(i=>i.decode().catch(()=>{}))).then(()=>{
+  for (const c of outfitCards){ const g=c.cv.getContext('2d'); g.fillStyle='#24170e'; g.fillRect(0,0,200,200);
+    outfitSprites.forEach((im,i)=>{ const o=outfitImg(im, c.id); if (o.width) g.drawImage(o, 6+i*94, 50, o.width*.55, o.height*.55); }); }
 });
 
 /* people */
