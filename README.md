@@ -50,6 +50,7 @@ Sửa `index.html` (bản web) hay `README.md` thì không tạo Release, vì zi
 - **Tặng quà**: banner ghi tên hồi hướng (lấy lời nguyện từ bình luận gần nhất của người đó nếu có), hiệu ứng theo giá trị quà, cộng điểm vào bảng Công Đức. Người tặng đứng dậy lên bàn thờ dâng lễ (quà hoa như Rose thì dâng hoa sen, quà khác thì dâng hương), màn hình zoom cận vào người đó khoảng 4 giây rồi trở lại toàn cảnh. Nhiều người tặng liền nhau thì lần lượt từng người. Chỉ người tặng quà mới được zoom, gõ "thắp nhang" thì không.
 - **Xin xăm**: miễn phí, mỗi người được xin 1 lần trong buổi live. Gõ `xin xăm` thì lên bàn thờ lắc ống xăm, có zoom, rồi hiện quẻ: số xăm, mức, 4 câu thơ và lời giải. Xin lần nữa thì hiện bong bóng nhỏ trên đầu người đó nhắc chỉ được 1 lần (không banner, không chuông). Bộ 30 quẻ nằm trong `live/xam.mjs`, sửa hay thêm thoải mái. Tắt được trong bảng điều khiển.
 - **Thả tim**: tim bay trên đầu nhân vật.
+- **Cảnh nền**: 4 cảnh *Chánh điện*, *Rừng trúc*, *Hồ sen đêm trăng*, *Đỉnh núi bình minh*, chọn trong tab **🏯 Cảnh & quà**. Bật *Tự động chuyển cảnh* thì cứ mỗi N phút chuyển sang cảnh kế tiếp (mờ dần), chỉ qua các cảnh có đánh dấu *tự chuyển*. Mọi cảnh giữ cùng bố cục nên thắp nhang, xin xăm, zoom quà vẫn chạy như cũ. Cảnh ngoài trời được vẽ bằng code trong `live/scenes.js`; tượng Phật `assets/buddha.png` được tách từ `assets/hall.jpg`.
 
 ### Bộ lọc từ tục tĩu
 

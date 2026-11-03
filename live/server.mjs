@@ -38,7 +38,11 @@ const settings = {
   filterExtra: '',                   // extra blocked words, comma separated
   xamOn: true,                       // "xin xăm", free, once per viewer
   audioOut: '',                      // overlay sound device name, e.g. "CABLE Input" (empty = Windows default speakers)
+  scene: 'hall',                     // backdrop, see live/scenes.js
+  sceneAuto: false, sceneEveryMin: 10,
+  sceneCycle: ['hall', 'bamboo', 'lotus', 'peak'],   // scenes the auto switch goes through, in this order
 };
+const SCENE_NAMES = { hall:'Chánh điện', bamboo:'Rừng trúc', lotus:'Hồ sen đêm trăng', peak:'Đỉnh núi bình minh' }, SCENE_IDS = Object.keys(SCENE_NAMES);
 // Settings survive restarts in live/config.json (git-ignored).
 const CONFIG = path.join(__dirname, 'config.json');
 
@@ -111,7 +115,7 @@ function onXamAsk(v){
 }
 
 function pub(v){ return { id:v.id, name:v.name, skin:v.skin, avatar:v.avatar||'', coins:v.coins }; }
-function snapshot(){ return { t:'state', settings, viewers:[...viewers.values()].map(pub), cap: capacity(), startedAt, tiktok: tiktokState, merit: topMerit(), version: VERSION }; }
+function snapshot(){ return { t:'state', settings, viewers:[...viewers.values()].map(pub), cap: capacity(), startedAt, tiktok: tiktokState, merit: topMerit(), version: VERSION, sceneAt }; }
 
 function cleanName(name, id){
   name = String(name || id || '').slice(0, 18);
@@ -205,6 +209,20 @@ const CHANTS = [
 let chantIdx = 0, chantTimer = null;
 function chant(){ const text = CHANTS[chantIdx++ % CHANTS.length]; broadcast({ t:'chant', text }); }
 function scheduleChant(){ clearInterval(chantTimer); if (settings.autoChant) chantTimer = setInterval(chant, Math.max(1, settings.chantEveryMin) * 60_000); }
+
+// Auto scene switch: every sceneEveryMin minutes, the next scene of sceneCycle. Picking a scene by hand restarts the wait.
+let sceneTimer = null, sceneAt = 0;
+function nextScene(){
+  const list = settings.sceneCycle.length ? settings.sceneCycle : SCENE_IDS;
+  const next = list[(list.indexOf(settings.scene) + 1) % list.length];
+  if (next !== settings.scene){ settings.scene = next; saveSettings(); addLog('🏞 Chuyển cảnh: ' + SCENE_NAMES[next]); }
+  scheduleScene(); broadcast({ t:'settings', settings, cap: capacity(), sceneAt });
+}
+function scheduleScene(){
+  clearTimeout(sceneTimer); sceneAt = 0;
+  if (!settings.sceneAuto) return;
+  const ms = settings.sceneEveryMin * 60_000; sceneAt = Date.now() + ms; sceneTimer = setTimeout(nextScene, ms);
+}
 
 /* --------------------------------------------------------------- TikTok */
 let TikTokLib = null;
@@ -394,9 +412,13 @@ function onControl(m){
     case 'chant': chant(); break;
     case 'openOverlay': if (!openOverlayWindow()) broadcast({ t:'openOverlayHere' }, 'control'); break;
     case 'notice': if (m.text) broadcast({ t:'notice', text: String(m.text).slice(0, 300) }); break;
-    case 'settings':
+    case 'settings': {
+      const was = [settings.scene, settings.sceneAuto, settings.sceneEveryMin].join();
       applySettings(m.settings || {}); saveSettings();
-      scheduleChant(); broadcast({ t:'settings', settings, cap: capacity() }); break;
+      if ([settings.scene, settings.sceneAuto, settings.sceneEveryMin].join() !== was) scheduleScene();
+      scheduleChant(); broadcast({ t:'settings', settings, cap: capacity(), sceneAt }); break;
+    }
+    case 'nextScene': nextScene(); break;
     case 'block': if (m.id) block(String(m.id), 'chặn tay'); break;
     case 'unblock': if (m.id) unblock(String(m.id)); break;
     case 'testFilter': { const r = wordFilter.check(String(m.text || '').slice(0, 200)); broadcast({ t:'filterTest', ...r }, 'control'); break; }
@@ -411,12 +433,14 @@ const SETTING_RULES = {
   prayerFromChat: Boolean, filterOn: Boolean, xamOn: Boolean,
   filterMode: v => v === 'mask' ? 'mask' : 'hide', filterStrikes: v => clamp(v, 0, 20), filterExtra: v => String(v).slice(0, 3000),
   audioOut: v => String(v).slice(0, 120),
+  scene: v => SCENE_IDS.includes(v) ? v : 'hall', sceneAuto: Boolean, sceneEveryMin: v => clamp(v, 1, 240),
+  sceneCycle: v => SCENE_IDS.filter(id => Array.isArray(v) && v.includes(id)),
 };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, Math.round(+v || 0)));
 function applySettings(o){ for (const [k, fn] of Object.entries(SETTING_RULES)) if (k in o) settings[k] = fn(o[k]); wordFilter.setExtraWords(settings.filterExtra); }
 function saveSettings(){ try { fs.writeFileSync(CONFIG, JSON.stringify(settings, null, 2)); } catch (e) { addLog('Không lưu được cài đặt: ' + e.message); } }
 try { applySettings(JSON.parse(fs.readFileSync(CONFIG, 'utf8'))); } catch {}
-scheduleChant();
+scheduleChant(); scheduleScene();
 
 /* -------------------------------------------------------------- server */
 // Security notes (this file is meant to be shared publicly):

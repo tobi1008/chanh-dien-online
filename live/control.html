@@ -125,6 +125,19 @@ button.sm{padding:5px 10px;font-size:12px}
 #log{height:240px;overflow:auto;margin:0;padding:12px 14px;font:12.5px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:#d9c7a6}
 #log .gift{color:var(--gold2)} #log .bad{color:#ff9f8a} #log .ok{color:#9fe0b4}
 
+/* scene picker: 9:16 thumbnails painted by live/scenes.js itself */
+.scenes{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
+.scene{position:relative;display:grid;border:1px solid var(--line2);border-radius:12px;background:var(--bg2);overflow:hidden}
+.scene>button{display:grid;gap:0;padding:0;border:0;border-radius:0;background:none;text-align:left}
+.scene>button:hover{background:var(--card2)}
+.scene canvas{display:block;width:100%;aspect-ratio:9/16;background:#000}
+.scene .nm{padding:7px 9px 2px;font-size:13px}
+.scene .cy{display:flex;flex-direction:row;align-items:center;gap:6px;padding:2px 9px 8px;font-size:11.5px;cursor:pointer}
+.scene .cy input{width:auto;accent-color:var(--gold)}
+.scene.on{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
+.scene.on .nm{color:var(--gold2)}
+.scene.on::before{content:"Đang chiếu";position:absolute;top:6px;left:6px;padding:2px 8px;border-radius:999px;background:var(--gold);color:#2a1405;font-size:11px;font-weight:700;pointer-events:none}
+
 /* toast */
 #toast{position:fixed;left:50%;bottom:24px;z-index:20;transform:translate(-50%,20px);opacity:0;padding:10px 18px;border-radius:999px;background:var(--raise);border:1px solid var(--gold);box-shadow:0 10px 30px rgba(0,0,0,.5);transition:.25s;pointer-events:none;max-width:calc(100vw - 32px)}
 #toast.show{opacity:1;transform:translate(-50%,0)}
@@ -248,6 +261,17 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
       </div>
 
       <div role="tabpanel" id="t-scene" aria-labelledby="tab-scene" hidden>
+        <div class="group">
+          <h3>Cảnh nền</h3>
+          <div class="scenes" id="scenes"></div>
+          <div class="cols">
+            <label class="sw"><span>Tự động chuyển cảnh<small id="sceneInfo">Lần lượt qua các cảnh có đánh dấu “tự chuyển”</small></span><input type="checkbox" id="sceneAuto"></label>
+            <div class="row">
+              <label>Chuyển mỗi (phút)<input id="sceneEveryMin" type="number" min="1" max="240" value="10"></label>
+              <button id="btnNextScene">⏭ Cảnh tiếp theo</button>
+            </div>
+          </div>
+        </div>
         <div class="cols">
           <div class="group">
             <h3>Bảng tên</h3>
@@ -299,6 +323,7 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
 <footer>Chánh Điện Online · mã nguồn mở MIT · thực hiện bởi Kent Juno</footer>
 <div id="toast" role="status"></div>
 
+<script src="/live/scenes.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 let ws = null;
@@ -323,7 +348,7 @@ try{ const t=$('tab-'+location.hash.slice(1)) || $(localStorage.getItem('cd.tab'
 
 /* settings */
 const SETTING_IDS = ['music','mo','autoChant','moBpm','chantEveryMin','title','subtitle','showEnter','syncViewers',
-  'prayerFromChat','filterOn','filterMode','filterStrikes','filterExtra','audioOut','xamOn'];
+  'prayerFromChat','filterOn','filterMode','filterStrikes','filterExtra','audioOut','xamOn','sceneAuto','sceneEveryMin'];
 // sound devices come from the overlay window; the saved one stays in the list even when the overlay doesn't see it,
 // otherwise the next settings save would quietly reset it to the default speakers
 let outNames=[], savedOut=''; const OUT_HINT=$('audioOutInfo').innerHTML;
@@ -333,9 +358,46 @@ function drawOuts(){
   sel.replaceChildren(new Option('Loa mặc định của máy',''), ...names.map(n => new Option(outNames.includes(n) ? n : n+' (không thấy)', n)));
   sel.value=savedOut;
 }
-function fillSettings(s){ if (s.audioOut!==undefined){ savedOut=s.audioOut; drawOuts(); } for (const k of SETTING_IDS){ const el=$(k); if (!el || s[k]===undefined || el===document.activeElement) continue; if (el.type==='checkbox') el.checked=!!s[k]; else el.value=s[k]; } $('brandTitle').textContent=s.title||'Chánh Điện Tịnh Tâm'; }
-function readSettings(){ const o={}; for (const k of SETTING_IDS){ const el=$(k); o[k] = el.type==='checkbox' ? el.checked : el.type==='number' ? +el.value : el.value; } return o; }
+function fillSettings(s){ if (s.audioOut!==undefined){ savedOut=s.audioOut; drawOuts(); } if (s.scene) curScene=s.scene; if (s.sceneCycle) cycle=s.sceneCycle; for (const k of SETTING_IDS){ const el=$(k); if (!el || s[k]===undefined || el===document.activeElement) continue; if (el.type==='checkbox') el.checked=!!s[k]; else el.value=s[k]; } $('brandTitle').textContent=s.title||'Chánh Điện Tịnh Tâm'; drawScenes(); }
+function readSettings(){ const o={}; for (const k of SETTING_IDS){ const el=$(k); o[k] = el.type==='checkbox' ? el.checked : el.type==='number' ? +el.value : el.value; } o.scene=curScene; o.sceneCycle=SCENE_ORDER.filter(id=>cycle.includes(id)); return o; }
 for (const k of SETTING_IDS) $(k).addEventListener('change', () => { if (send('settings', { settings: readSettings() })) toast('Đã lưu cài đặt'); });
+
+/* scenes */
+const SCENE_ORDER=Object.keys(SCENES); let curScene='hall', cycle=[...SCENE_ORDER], sceneAt=0;
+const saveScenes=()=>send('settings', { settings: readSettings() });
+const sceneCards=SCENE_ORDER.map(id=>{
+  const s=SCENES[id], card=document.createElement('div'); card.className='scene';
+  const b=document.createElement('button'); b.type='button'; b.title='Chiếu cảnh này ngay';
+  const cv=document.createElement('canvas'); cv.width=180; cv.height=320;
+  const nm=document.createElement('span'); nm.className='nm'; nm.textContent=s.icon+' '+s.name; b.append(cv,nm);
+  b.onclick=()=>{ if (curScene===id) return; curScene=id; drawScenes(); if (saveScenes()) toast('Đang chuyển sang '+s.name); };
+  const cy=document.createElement('label'); cy.className='cy'; const ck=document.createElement('input'); ck.type='checkbox';
+  ck.onchange=()=>{ cycle = ck.checked ? [...cycle, id] : cycle.filter(x=>x!==id); if (saveScenes()) toast('Đã lưu cài đặt'); drawScenes(); };
+  cy.append(ck, 'tự chuyển'); card.append(b, cy); $('scenes').append(card);
+  return { id, card, ck, cv, b };
+});
+function drawScenes(){
+  for (const c of sceneCards){ c.card.classList.toggle('on', c.id===curScene); c.ck.checked=cycle.includes(c.id); c.b.setAttribute('aria-pressed', c.id===curScene); }
+  drawSceneInfo();
+}
+function drawSceneInfo(){
+  const list = cycle.length ? SCENE_ORDER.filter(id=>cycle.includes(id)) : SCENE_ORDER, next = SCENES[list[(list.indexOf(curScene)+1)%list.length]];
+  const left = Math.max(0, Math.round((sceneAt-Date.now())/1000));
+  $('sceneInfo').textContent = !$('sceneAuto').checked ? 'Lần lượt qua các cảnh có đánh dấu “tự chuyển”'
+    : sceneAt ? `Tiếp theo: ${next.icon} ${next.name} sau ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}` : `Tiếp theo: ${next.icon} ${next.name}`;
+}
+setInterval(drawSceneInfo, 1000);
+$('btnNextScene').onclick=()=>send('nextScene');
+// thumbnails: each scene painted full size once, then scaled down
+const thumbImg={ hall:new Image(), bamboo:new Image(), buddha:new Image() }; thumbImg.hall.src='/assets/hall.jpg'; thumbImg.bamboo.src='/assets/bamboo.jpg'; thumbImg.buddha.src='/assets/buddha.png';
+Promise.all(Object.values(thumbImg).map(i=>i.decode().catch(()=>{}))).then(()=>{
+  const big=document.createElement('canvas'); big.width=1080; big.height=1920; const g=big.getContext('2d');
+  sceneCards.forEach((c,i)=>setTimeout(()=>{
+    const s=SCENES[c.id], bg=sceneBackdrop(s, thumbImg); if (!bg) return;
+    g.clearRect(0,0,1080,1920); g.drawImage(bg,0,0,1080,1920); sceneBack(g, s, 3, 0, 1);
+    c.cv.getContext('2d').drawImage(big,0,0,180,320); s.canvas=null;          // the full-size copy isn't needed here
+  }, 60*i));
+});
 
 /* people */
 const people = new Map(); let peopleQueued=false;
@@ -405,8 +467,8 @@ function connect(){
     const m = JSON.parse(e.data);
     switch (m.t){
       case 'state': if (m.version && pageVersion && m.version!==pageVersion){ location.reload(); return; } pageVersion=m.version; $('ver').textContent='Phiên bản '+m.version;
-        fillSettings(m.settings); setTT(m.tiktok); startedAt=m.startedAt; people.clear(); for (const v of m.viewers) people.set(v.id,v); renderPeople(); break;
-      case 'settings': fillSettings(m.settings); break;
+        sceneAt=m.sceneAt||0; fillSettings(m.settings); setTT(m.tiktok); startedAt=m.startedAt; people.clear(); for (const v of m.viewers) people.set(v.id,v); renderPeople(); break;
+      case 'settings': if ('sceneAt' in m) sceneAt=m.sceneAt||0; fillSettings(m.settings); break;
       case 'logs': logEl.replaceChildren(); m.lines.forEach(logLine); break;
       case 'log': logLine(m.line); break;
       case 'tiktok': setTT(m); break;

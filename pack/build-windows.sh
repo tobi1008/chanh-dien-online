@@ -37,7 +37,7 @@ unzip -q -j -o "$CACHE/$NODE_ZIP" "node-$NODE_VERSION-win-x64/node.exe" "node-$N
 
 # 2. app files (the server serves /assets and /live from the folder above live/)
 cp -R "$ROOT/assets" "$APP/assets"
-cp "$ROOT/live/"{control.html,overlay.html} "$APP/live/"
+cp "$ROOT/live/"{control.html,overlay.html,scenes.js} "$APP/live/"
 # version the server compares against GitHub Releases for "Cập nhật" (release.sh passes the tag it is about to publish)
 VERSION="${VERSION:-$(date +%Y.%m.%d.%H%M)}"
 printf '%s' "$VERSION" > "$APP/live/version.txt"

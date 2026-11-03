@@ -131,6 +131,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
   <div id="conn">đang kết nối…</div>
 </div></div>
 
+<script src="/live/scenes.js"></script>
 <script>
 /* ======================= stage fit ======================= */
 const stage = document.getElementById('stage');
@@ -139,7 +140,7 @@ addEventListener('resize', fit); fit();
 
 /* ======================= assets ======================= */
 const A = {};
-const IMG = { hall:'/assets/hall.jpg', monk:'/assets/c_monk.png', nun:'/assets/c_nun.png', granny:'/assets/c_granny.png', man:'/assets/c_man.png',
+const IMG = { hall:'/assets/hall.jpg', bamboo:'/assets/bamboo.jpg', buddha:'/assets/buddha.png', monk:'/assets/c_monk.png', nun:'/assets/c_nun.png', granny:'/assets/c_granny.png', man:'/assets/c_man.png',
   woman:'/assets/c_woman.png', child:'/assets/c_child.png', anim_man:'/assets/anim_man.png', anim_woman:'/assets/anim_woman.png', anim_granny:'/assets/anim_granny.png',
   lotus:'/assets/fx_lotus.png', halo:'/assets/fx_halo.png', bell:'/assets/fx_bell.png', incense:'/assets/fx_incense.png', petal:'/assets/fx_petal.png' };
 for (const [k,src] of Object.entries(IMG)){ const im=new Image(); im.src=src; A[k]=im; }
@@ -242,6 +243,34 @@ function follow(v, dt){
   if (Math.abs(dx) > 1) v.flip = dx < 0;
   v.ft += dt; if (v.ft > .15){ v.ft = 0; v.frame = (v.frame+1)%4; }
   return !v.path.length;
+}
+
+/* ======================= scenes ======================= */
+// settings.scene picks the backdrop (live/scenes.js). A switch cross-fades over SCENE_FADE seconds; the first one is instant.
+const SCENE_FADE = 2.5;
+let scene = SCENES.hall, scenePrev = null, sceneK = 1, sceneSet = false;
+function setScene(id){
+  const s = SCENES[id] || SCENES.hall;
+  if (!sceneSet){ sceneSet = true; scene = s; sceneBackdrop(s, A); return; }
+  if (s === scene) return;
+  scenePrev = scene; scene = s; sceneK = 0; sceneBackdrop(s, A);   // paint now, while the new scene is still invisible
+}
+function drawScene(dt, t){
+  if (scenePrev){ sceneK = Math.min(1, sceneK + dt/SCENE_FADE); if (sceneK >= 1) scenePrev = null; }
+  const k = scenePrev ? sceneK*sceneK*(3-2*sceneK) : 1;
+  for (const [s, a] of scenePrev ? [[scenePrev, 1], [scene, k]] : [[scene, 1]]){
+    const bg = sceneBackdrop(s, A);
+    if (bg){ ctx.save(); ctx.globalAlpha = a; ctx.drawImage(bg, 0, 0, 1080, 1920); ctx.restore(); }
+    sceneBack(ctx, s, t, dt, a);
+  }
+  return k;
+}
+// prayer mats under every taken seat (painted scenes only), drawn before anyone sits on them
+function drawCushions(k){
+  for (const [s, a] of scenePrev ? [[scenePrev, 1-k], [scene, k]] : [[scene, 1]]){
+    if (!s.cushion || a <= 0) continue;
+    for (let i = 0; i < order.length && i < seats.length; i++){ const st = seats[i]; sceneCushion(ctx, s, st.x, st.y, st.scale/.4, a); }
+  }
 }
 
 /* ======================= HUD ======================= */
@@ -426,7 +455,7 @@ function connect(){
 function applySettings(){
   document.getElementById('title').textContent=settings.title||'Chánh Điện Tịnh Tâm'; fitTitle();
   document.getElementById('subtitle').textContent=settings.subtitle||'Nam Mô A Di Đà Phật';
-  duck(false); scheduleMo();
+  duck(false); scheduleMo(); setScene(settings.scene);
   if ((settings.audioOut||'')!==sinkWant) applySink();
 }
 // Sound device (settings.audioOut, e.g. "CABLE Input" of VB-Cable): LIVE Studio then records only this window from the
@@ -551,14 +580,16 @@ let last=performance.now();
 function frame(now){
   nextFrame(frame); const dt=Math.min((now-last)/1000,.05); last=now; const t=now/1000;
   ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,1080,1920); camera(dt, now);
-  if (A.hall.naturalWidth) ctx.drawImage(A.hall,0,0,1080,1920);
+  const sk = drawScene(dt, t);
   // light: halo pulse behind the Buddha, candle flicker, incense smoke
   haloPulse=Math.max(0,haloPulse-dt*.4);
   ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.2+.08*Math.sin(t*1.2)+haloPulse*.5; sprite(A.halo,540,560,2.7+haloPulse*.35,.5); ctx.restore();
-  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.05+.035*Math.sin(t*9)*Math.sin(t*13.3); ctx.fillStyle='#ffb347'; ctx.fillRect(0,300,1080,800); ctx.restore();
+  const flicker = (scene.flicker ? sk : 0) + (scenePrev?.flicker ? 1-sk : 0);                             // candle light in the hall
+  if (flicker){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=(.05+.035*Math.sin(t*9)*Math.sin(t*13.3))*flicker; ctx.fillStyle='#ffb347'; ctx.fillRect(0,300,1080,800); ctx.restore(); }
   drawSticks(dt, t);
   const smoke=Math.min(1,sticks.filter(k=>!k.flower).length/3);                                             // more incense, thicker smoke
   ctx.save(); ctx.fillStyle='#efe3cc'; for (let i=0;i<16;i++){ const a=(t*.08+i*.0625)%1; ctx.globalAlpha=(.28+.22*smoke)*(1-a); ctx.beginPath(); ctx.arc(540+Math.sin(a*7+i)*20*a, 1000-a*280, 4+a*15, 0, 6.28); ctx.fill(); } ctx.restore();
+  drawCushions(sk);
   // teachers
   for (const tc of TEACHERS){ if (tc.master){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=.35+.1*Math.sin(t*1.5); sprite(A.halo,tc.x,tc.y-120,.9,.5); ctx.restore(); }
     sprite(A[tc.skin],tc.x,tc.y,tc.s); tag(tc.name,tc.x,tc.y-tc.s*260-22,tc.s,'gold'); }
@@ -627,6 +658,8 @@ function frame(now){
     if (p.heart){ ctx.fillStyle='#ff5a7a'; ctx.font='34px serif'; ctx.textAlign='center'; ctx.fillText('♥',0,0); } else { ctx.rotate(Math.sin(p.t*2+i)*.6); sprite(A.petal,0,0,p.s,.5); }
     ctx.restore(); }
   drawFlying(dt);
+  if (scenePrev) sceneFront(ctx, scenePrev, t, dt, 1-sk);
+  sceneFront(ctx, scene, t, dt, sk);
   ctx.setTransform(1,0,0,1,0,0);
 }
 /* lantern ambience: every few minutes the hall lanterns brighten for a moment */
