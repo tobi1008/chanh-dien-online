@@ -51,6 +51,7 @@ Sửa `index.html` (bản web) hay `README.md` thì không tạo Release, vì zi
 - **Xin xăm**: miễn phí, mỗi người được xin 1 lần trong buổi live. Gõ `xin xăm` thì lên bàn thờ lắc ống xăm, có zoom, rồi hiện quẻ: số xăm, mức, 4 câu thơ và lời giải. Xin lần nữa thì hiện bong bóng nhỏ trên đầu người đó nhắc chỉ được 1 lần (không banner, không chuông). Bộ 30 quẻ nằm trong `live/xam.mjs`, sửa hay thêm thoải mái. Tắt được trong bảng điều khiển.
 - **Thả tim**: tim bay trên đầu nhân vật.
 - **Cảnh nền**: 8 cảnh *Chánh điện*, *Rừng trúc*, *Hồ sen đêm trăng*, *Đỉnh núi bình minh*, *Cội Bồ Đề hoàng hôn*, *Sân chùa tuyết*, *Thác nước*, *Mai vàng ngày xuân*, chọn trong tab **🏯 Cảnh & quà**. Bật *Tự động chuyển cảnh* thì cứ mỗi N phút chuyển sang cảnh kế tiếp (mờ dần), bỏ qua các cảnh đã bỏ dấu *tự chuyển*. Mọi cảnh giữ cùng bố cục nên thắp nhang, xin xăm, zoom quà vẫn chạy như cũ. Cảnh vẽ bằng code nằm trong `live/scenes.js`; rừng trúc là ảnh `assets/bamboo.jpg`; tượng Phật `assets/buddha.png` được tách từ `assets/hall.jpg`.
+- **Nhạc nền**: mọi file `.mp3`, `.m4a`, `.ogg`, `.wav` trong `assets/music` hiện thành danh sách trong tab **🔔 Âm thanh & kinh**, chép thêm bài vào là danh sách tự cập nhật. Bấm tên bài để phát ngay. Bật *Tự động chuyển bài* thì hết bài sẽ phát ngẫu nhiên bài khác có đánh dấu *tự chuyển* (mỗi vòng mỗi bài một lần, không lặp liền); tắt thì lặp lại bài đang phát. Mỗi lần mở server bắt đầu bằng một bài ngẫu nhiên, từ đoạn giữa bài. Chỉ dùng nhạc bạn có quyền (tự tạo hoặc miễn phí bản quyền), nhạc có bản quyền có thể bị TikTok tắt tiếng hoặc cảnh báo.
 - **Kiểu áo người xem**: áo lam xám, lam xanh, nâu, trắng, tràng vàng, hồng phấn. Chọn một hay nhiều kiểu; chọn nhiều thì mỗi người xem mặc một kiểu trong số đó. Bà cụ và các sư giữ nguyên áo.
 
 ### Bộ lọc từ tục tĩu
@@ -80,7 +81,7 @@ Các lớp trên đã được thử: đường dẫn `../`, `%2e%2e`, `.git/con
 ### Lưu ý
 
 - `tiktok-live-connector` là thư viện cộng đồng, không phải API chính thức của TikTok. Nó có thể ngừng chạy khi TikTok đổi hệ thống. Kiểm tra điều khoản TikTok trước khi dùng cho kênh của bạn.
-- Hình ảnh trong `assets/` được tạo bằng Google Flow, nhạc nền tạo bằng Gemini. Kiểm tra điều khoản của các dịch vụ đó trước khi dùng thương mại, hoặc thay bằng tài nguyên của bạn.
+- Hình ảnh trong `assets/` được tạo bằng Google Flow, nhạc nền `music1`, `music2` tạo bằng Gemini; 6 bài còn lại trong `assets/music` tổng hợp hoàn toàn bằng code (`pack/make-music.py`, không dùng mẫu âm thanh nào), tự do sử dụng. Kiểm tra điều khoản của các dịch vụ đó trước khi dùng thương mại, hoặc thay bằng tài nguyên của bạn.
 
 ## Miễn trừ trách nhiệm
 

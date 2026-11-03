@@ -42,6 +42,9 @@ const settings = {
   sceneAuto: false, sceneEveryMin: 10,
   sceneOff: [],                      // scenes the auto switch skips (so scenes added later are in the rotation by default)
   outfits: ['lam'],                  // robes viewers wear, see OUTFITS in live/scenes.js; several = each viewer gets one of them
+  track: '',                         // background music file in assets/music now playing
+  musicAuto: true,                   // when a track ends, play a random other one not in musicOff (off = repeat the track)
+  musicOff: [],                      // tracks the auto switch skips (so files added later are in the rotation by default)
 };
 const SCENE_NAMES = { hall:'Chánh điện', bamboo:'Rừng trúc', lotus:'Hồ sen đêm trăng', peak:'Đỉnh núi bình minh',
   bodhi:'Cội Bồ Đề hoàng hôn', snow:'Sân chùa tuyết', fall:'Thác nước', spring:'Mai vàng ngày xuân' }, SCENE_IDS = Object.keys(SCENE_NAMES);
@@ -118,7 +121,7 @@ function onXamAsk(v){
 }
 
 function pub(v){ return { id:v.id, name:v.name, skin:v.skin, avatar:v.avatar||'', coins:v.coins }; }
-function snapshot(){ return { t:'state', settings, viewers:[...viewers.values()].map(pub), cap: capacity(), startedAt, tiktok: tiktokState, merit: topMerit(), version: VERSION, sceneAt }; }
+function snapshot(){ return { t:'state', tracks: musicFiles, track: musicTrack(), musicSeq, settings, viewers:[...viewers.values()].map(pub), cap: capacity(), startedAt, tiktok: tiktokState, merit: topMerit(), version: VERSION, sceneAt }; }
 
 function cleanName(name, id){
   name = String(name || id || '').slice(0, 18);
@@ -221,6 +224,33 @@ function nextScene(){
   if (next !== settings.scene){ settings.scene = next; saveSettings(); addLog('🏞 Chuyển cảnh: ' + SCENE_NAMES[next]); }
   scheduleScene(); broadcast({ t:'settings', settings, cap: capacity(), sceneAt });
 }
+// Background music: every audio file in assets/music is a track, files added while running show up by themselves.
+// The server picks the track so every overlay window plays the same one; an overlay reports when it ended.
+// musicSeq changes on every pick, so picking the same track again (only one in the rotation) still restarts it.
+const MUSIC_DIR = path.join(ROOT, 'assets', 'music');
+function scanMusic(){
+  try { return fs.readdirSync(MUSIC_DIR).filter(f => !f.startsWith('.') && /\.(mp3|m4a|ogg|wav)$/i.test(f)).sort((a, b) => a.localeCompare(b, 'vi')); }
+  catch { return []; }
+}
+let musicFiles = scanMusic(), musicSeq = 0, musicBag = [], musicWatch = null;
+try { fs.watch(MUSIC_DIR, () => { clearTimeout(musicWatch); musicWatch = setTimeout(() => {
+  const l = scanMusic(); if (l.join('\n') !== musicFiles.join('\n')){ musicFiles = l; broadcast({ t:'tracks', tracks: l }); addLog(`🎵 Thư mục nhạc có ${l.length} bài`); }
+}, 800); }); } catch {}
+const musicTrack = () => musicFiles.includes(settings.track) ? settings.track : musicFiles[0] || '';
+const trackTitle = f => f.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
+// random order, each ticked track once per round, never the same one twice in a row
+function pickTrack(){
+  const on = musicFiles.filter(f => !settings.musicOff.includes(f)), list = on.length ? on : musicFiles;
+  musicBag = musicBag.filter(f => list.includes(f) && f !== settings.track);
+  if (!musicBag.length){ musicBag = list.filter(f => f !== settings.track); for (let i = musicBag.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [musicBag[i], musicBag[j]] = [musicBag[j], musicBag[i]]; } }
+  return musicBag.pop() || list[0];
+}
+function playTrack(name, why){
+  if (!musicFiles.includes(name)) return;
+  settings.track = name; musicSeq++; saveSettings(); addLog(`🎵 ${why}: ${trackTitle(name)}`);
+  broadcast({ t:'track', track: name, seq: musicSeq }); broadcast({ t:'settings', settings, cap: capacity(), sceneAt });
+}
+const nextTrack = () => playTrack(pickTrack(), 'Chuyển bài');
 function scheduleScene(){
   clearTimeout(sceneTimer); sceneAt = 0;
   if (!settings.sceneAuto) return;
@@ -422,6 +452,8 @@ function onControl(m){
       scheduleChant(); broadcast({ t:'settings', settings, cap: capacity(), sceneAt }); break;
     }
     case 'nextScene': nextScene(); break;
+    case 'playTrack': playTrack(String(m.name || ''), 'Phát bài'); break;
+    case 'nextTrack': nextTrack(); break;
     case 'block': if (m.id) block(String(m.id), 'chặn tay'); break;
     case 'unblock': if (m.id) unblock(String(m.id)); break;
     case 'testFilter': { const r = wordFilter.check(String(m.text || '').slice(0, 200)); broadcast({ t:'filterTest', ...r }, 'control'); break; }
@@ -438,6 +470,8 @@ const SETTING_RULES = {
   audioOut: v => String(v).slice(0, 120),
   scene: v => SCENE_IDS.includes(v) ? v : 'hall', sceneAuto: Boolean, sceneEveryMin: v => clamp(v, 1, 240),
   sceneOff: v => SCENE_IDS.filter(id => Array.isArray(v) && v.includes(id)),
+  track: v => String(v).slice(0, 200), musicAuto: Boolean,
+  musicOff: v => Array.isArray(v) ? v.slice(0, 500).map(f => String(f).slice(0, 200)) : [],
   outfits: v => { const l = OUTFIT_IDS.filter(id => Array.isArray(v) && v.includes(id)); return l.length ? l : ['lam']; },
 };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, Math.round(+v || 0)));
@@ -446,6 +480,7 @@ function applySettings(o){
   for (const [k, fn] of Object.entries(SETTING_RULES)) if (k in o) settings[k] = fn(o[k]); wordFilter.setExtraWords(settings.filterExtra); }
 function saveSettings(){ try { fs.writeFileSync(CONFIG, JSON.stringify(settings, null, 2)); } catch (e) { addLog('Không lưu được cài đặt: ' + e.message); } }
 try { applySettings(JSON.parse(fs.readFileSync(CONFIG, 'utf8'))); } catch {}
+if (settings.musicAuto && musicFiles.length) settings.track = pickTrack();     // every live opens on a different track
 scheduleChant(); scheduleScene();
 
 /* -------------------------------------------------------------- server */
@@ -458,7 +493,7 @@ scheduleChant(); scheduleScene();
 //  • no TikTok password, cookie or session is ever used or stored; only public room events are read
 const HOST = process.env.HOST || '127.0.0.1';
 const MIME = { '.html':'text/html; charset=utf-8', '.js':'text/javascript', '.css':'text/css', '.json':'application/json',
-  '.png':'image/png', '.jpg':'image/jpeg', '.webp':'image/webp', '.mp3':'audio/mpeg', '.svg':'image/svg+xml', '.ico':'image/x-icon' };
+  '.png':'image/png', '.jpg':'image/jpeg', '.webp':'image/webp', '.mp3':'audio/mpeg', '.m4a':'audio/mp4', '.ogg':'audio/ogg', '.wav':'audio/wav', '.svg':'image/svg+xml', '.ico':'image/x-icon' };
 const ALLOWED_HOSTS = new Set([`localhost:${PORT}`, `127.0.0.1:${PORT}`, `[::1]:${PORT}`]);
 // When HOST is opened on purpose (e.g. 0.0.0.0 to reach it from another machine on the LAN), plain IP addresses are
 // accepted too. Hostnames other than localhost stay blocked, which is what stops DNS-rebinding pages.
@@ -514,7 +549,8 @@ wss.on('connection', (ws, req) => {
       try { const m = JSON.parse(buf); if (m?.t === 'audio'){
         ws.audio = !!m.on; ws.sink = String(m.sink || '').slice(0, 120);
         ws.outs = Array.isArray(m.outs) ? m.outs.slice(0, 40).map(s => String(s).slice(0, 120)) : [];
-        broadcast(overlayStatus(), 'control'); } } catch {}
+        broadcast(overlayStatus(), 'control'); }
+        if (m?.t === 'ended' && m.seq === musicSeq && settings.musicAuto) nextTrack(); } catch {}
       return;
     }
     if (ws.role !== 'control') return;

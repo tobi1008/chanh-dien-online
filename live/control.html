@@ -125,6 +125,17 @@ button.sm{padding:5px 10px;font-size:12px}
 #log{height:240px;overflow:auto;margin:0;padding:12px 14px;font:12.5px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;color:#d9c7a6}
 #log .gift{color:var(--gold2)} #log .bad{color:#ff9f8a} #log .ok{color:#9fe0b4}
 
+/* music picker: one row per file in assets/music */
+.tracks{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.track{display:flex;align-items:center;gap:6px;border:1px solid var(--line2);border-radius:10px;background:var(--bg2);min-width:0}
+.track>button{flex:1;min-width:0;padding:9px 10px;border:0;background:none;text-align:left;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.track>button:hover{background:var(--card2)}
+.track .cy{display:flex;flex-direction:row;align-items:center;gap:5px;padding:0 10px 0 4px;font-size:11.5px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.track .cy input{width:auto;accent-color:var(--gold)}
+.track.on{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
+.track.on>button{color:var(--gold2);font-weight:600}
+.tracks .none{grid-column:1/-1;padding:10px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:10px}
+
 /* scene picker: 9:16 thumbnails painted by live/scenes.js itself */
 .scenes{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
 .scene{position:relative;display:grid;border:1px solid var(--line2);border-radius:12px;background:var(--bg2);overflow:hidden}
@@ -240,6 +251,15 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
       </div>
 
       <div role="tabpanel" id="t-sound" aria-labelledby="tab-sound" hidden>
+        <div class="group">
+          <h3>Nhạc nền</h3>
+          <ul class="tracks" id="tracks"></ul>
+          <div class="cols">
+            <label class="sw"><span>Tự động chuyển bài<small id="musicInfo"></small></span><input type="checkbox" id="musicAuto" checked></label>
+            <div class="row"><button id="btnNextTrack">⏭ Bài tiếp theo</button></div>
+          </div>
+          <p class="hint">Bấm vào tên bài để phát ngay. Thêm bài: chép file .mp3 / .m4a / .ogg / .wav vào thư mục <b>assets/music</b>, danh sách tự cập nhật. Chỉ dùng nhạc bạn có quyền (tự tạo hoặc miễn phí bản quyền).</p>
+        </div>
         <div class="cols">
           <div class="group">
             <h3>Thông báo trên màn hình</h3>
@@ -356,7 +376,7 @@ try{ const t=$('tab-'+location.hash.slice(1)) || $(localStorage.getItem('cd.tab'
 
 /* settings */
 const SETTING_IDS = ['music','mo','autoChant','moBpm','chantEveryMin','title','subtitle','showEnter','syncViewers',
-  'prayerFromChat','filterOn','filterMode','filterStrikes','filterExtra','audioOut','xamOn','sceneAuto','sceneEveryMin'];
+  'prayerFromChat','filterOn','filterMode','filterStrikes','filterExtra','audioOut','xamOn','sceneAuto','sceneEveryMin','musicAuto'];
 // sound devices come from the overlay window; the saved one stays in the list even when the overlay doesn't see it,
 // otherwise the next settings save would quietly reset it to the default speakers
 let outNames=[], savedOut=''; const OUT_HINT=$('audioOutInfo').innerHTML;
@@ -366,9 +386,28 @@ function drawOuts(){
   sel.replaceChildren(new Option('Loa mặc định của máy',''), ...names.map(n => new Option(outNames.includes(n) ? n : n+' (không thấy)', n)));
   sel.value=savedOut;
 }
-function fillSettings(s){ if (s.audioOut!==undefined){ savedOut=s.audioOut; drawOuts(); } if (s.scene) curScene=s.scene; if (s.sceneOff) sceneOff=s.sceneOff; if (s.outfits) outfits=s.outfits; for (const k of SETTING_IDS){ const el=$(k); if (!el || s[k]===undefined || el===document.activeElement) continue; if (el.type==='checkbox') el.checked=!!s[k]; else el.value=s[k]; } $('brandTitle').textContent=s.title||'Chánh Điện Tịnh Tâm'; drawScenes(); drawOutfits(); }
-function readSettings(){ const o={}; for (const k of SETTING_IDS){ const el=$(k); o[k] = el.type==='checkbox' ? el.checked : el.type==='number' ? +el.value : el.value; } o.scene=curScene; o.sceneOff=sceneOff; o.outfits=OUTFIT_ORDER.filter(id=>outfits.includes(id)); return o; }
+function fillSettings(s){ if (s.audioOut!==undefined){ savedOut=s.audioOut; drawOuts(); } if (s.scene) curScene=s.scene; if (s.sceneOff) sceneOff=s.sceneOff; if (s.outfits) outfits=s.outfits; if (s.musicOff) musicOff=s.musicOff; if (tracks.includes(s.track)) curTrack=s.track; for (const k of SETTING_IDS){ const el=$(k); if (!el || s[k]===undefined || el===document.activeElement) continue; if (el.type==='checkbox') el.checked=!!s[k]; else el.value=s[k]; } $('brandTitle').textContent=s.title||'Chánh Điện Tịnh Tâm'; drawScenes(); drawOutfits(); drawTracks(); }
+function readSettings(){ const o={}; for (const k of SETTING_IDS){ const el=$(k); o[k] = el.type==='checkbox' ? el.checked : el.type==='number' ? +el.value : el.value; } o.scene=curScene; o.sceneOff=sceneOff; o.outfits=OUTFIT_ORDER.filter(id=>outfits.includes(id)); o.musicOff=musicOff; return o; }
 for (const k of SETTING_IDS) $(k).addEventListener('change', () => { if (send('settings', { settings: readSettings() })) toast('Đã lưu cài đặt'); });
+
+/* music */
+let tracks=[], curTrack='', musicOff=[];
+const trackTitle = f => f.replace(/\.[^.]+$/,'').replace(/[_-]+/g,' ').trim();
+function drawTracks(){
+  const ul=$('tracks');
+  if (!tracks.length){ const li=document.createElement('li'); li.className='none'; li.textContent='Chưa có bài nào trong thư mục assets/music'; ul.replaceChildren(li); }
+  else ul.replaceChildren(...tracks.map(f=>{
+    const li=document.createElement('li'), on=f===curTrack; li.className='track'+(on?' on':'');
+    const b=document.createElement('button'); b.type='button'; b.textContent=(on?'🔊 ':'▶ ')+trackTitle(f); b.title=on?'Đang phát':f; b.setAttribute('aria-pressed', on);
+    b.onclick=()=>{ if (!on && send('playTrack', { name:f })) toast('Đang phát '+trackTitle(f)); };
+    const cy=document.createElement('label'); cy.className='cy'; const ck=document.createElement('input'); ck.type='checkbox'; ck.checked=!musicOff.includes(f);
+    ck.onchange=()=>{ musicOff = ck.checked ? musicOff.filter(x=>x!==f) : [...musicOff, f]; if (send('settings', { settings: readSettings() })) toast('Đã lưu cài đặt'); };
+    cy.append(ck, 'tự chuyển'); li.append(b, cy); return li;
+  }));
+  const n=tracks.filter(f=>!musicOff.includes(f)).length;
+  $('musicInfo').textContent = $('musicAuto').checked ? `Hết bài thì phát ngẫu nhiên bài khác (${n||tracks.length}/${tracks.length} bài có “tự chuyển”)` : 'Tắt: lặp lại bài đang phát';
+}
+$('btnNextTrack').onclick=()=>send('nextTrack');
 
 /* scenes */
 const SCENE_ORDER=Object.keys(SCENES); let curScene='hall', sceneOff=[], sceneAt=0;
@@ -494,8 +533,10 @@ function connect(){
     const m = JSON.parse(e.data);
     switch (m.t){
       case 'state': if (m.version && pageVersion && m.version!==pageVersion){ location.reload(); return; } pageVersion=m.version; $('ver').textContent='Phiên bản '+m.version;
-        sceneAt=m.sceneAt||0; fillSettings(m.settings); setTT(m.tiktok); startedAt=m.startedAt; people.clear(); for (const v of m.viewers) people.set(v.id,v); renderPeople(); break;
+        sceneAt=m.sceneAt||0; tracks=m.tracks||[]; curTrack=m.track||''; fillSettings(m.settings); setTT(m.tiktok); startedAt=m.startedAt; people.clear(); for (const v of m.viewers) people.set(v.id,v); renderPeople(); break;
       case 'settings': if ('sceneAt' in m) sceneAt=m.sceneAt||0; fillSettings(m.settings); break;
+      case 'tracks': tracks=m.tracks; drawTracks(); break;
+      case 'track': curTrack=m.track; drawTracks(); break;
       case 'logs': logEl.replaceChildren(); m.lines.forEach(logLine); break;
       case 'log': logLine(m.line); break;
       case 'tiktok': setTT(m); break;
