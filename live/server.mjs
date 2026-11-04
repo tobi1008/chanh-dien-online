@@ -24,6 +24,9 @@ const VERSION = (() => { try { return fs.readFileSync(path.join(__dirname, 'vers
 const UPDATE_REPO = process.env.UPDATE_REPO || 'tobi1008/chanh-dien-online';    // GitHub Releases published by pack/release.sh
 
 /* ------------------------------------------------------------------ state */
+// action: what commenting a row's *starred* words does (see findAction). '' = the row is only shown.
+const DEFAULT_GUIDE = [ { icon:'💬', text:'Bình luận để vào', action:'' }, { icon:'🙏', text:'*Dâng hương*', action:'incense' },
+  { icon:'🪷', text:'*Dâng hoa*', action:'flower' }, { icon:'🔮', text:'*Quẻ tử vi*', action:'xam' }, { icon:'🙇', text:'*Lạy* · *Vái*', action:'bow' } ];
 const settings = {
   title: 'Chánh Điện Tịnh Tâm',
   subtitle: 'Nam Mô A Di Đà Phật',
@@ -45,9 +48,20 @@ const settings = {
   track: '',                         // background music file in assets/music now playing
   musicAuto: true,                   // when a track ends, play a random other one not in musicOff (off = repeat the track)
   musicOff: [],                      // tracks the auto switch skips (so files added later are in the rotation by default)
+  bgAltar: true,                     // uploaded backgrounds get the altar + statue painted on top (offerings need somewhere to go)
+  guide: DEFAULT_GUIDE,              // the "how to join" card on the overlay; *word* is drawn in gold
 };
 const SCENE_NAMES = { hall:'Chánh điện', bamboo:'Rừng trúc', lotus:'Hồ sen đêm trăng', peak:'Đỉnh núi bình minh',
   bodhi:'Cội Bồ Đề hoàng hôn', snow:'Sân chùa tuyết', fall:'Thác nước', spring:'Mai vàng ngày xuân' }, SCENE_IDS = Object.keys(SCENE_NAMES);
+// Backgrounds uploaded from the panel (or copied in) live in assets/bg; each one is a scene with id "bg:<file>".
+const BG_DIR = path.join(ROOT, 'assets', 'bg');
+function scanBg(){
+  try { return fs.readdirSync(BG_DIR).filter(f => !f.startsWith('.') && /\.(jpe?g|png|webp)$/i.test(f)).sort((a, b) => a.localeCompare(b, 'vi')); }
+  catch { return []; }
+}
+let bgFiles = scanBg();
+const allScenes = () => [...SCENE_IDS, ...bgFiles.map(f => 'bg:' + f)];
+const sceneName = id => SCENE_NAMES[id] || String(id).replace(/^bg:/, '').replace(/\.[^.]+$/, '');
 const OUTFIT_IDS = ['lam', 'blue', 'brown', 'white', 'yellow', 'rose'];
 // Settings survive restarts in live/config.json (git-ignored).
 const CONFIG = path.join(__dirname, 'config.json');
@@ -91,22 +105,50 @@ function skinFromText(t){
 }
 const DEFAULT_SKINS = ['man', 'woman', 'woman', 'man', 'granny'];
 
-// "thắp nhang" / "dâng hương" (with or without accents) in a comment: that viewer walks up and offers incense.
-// One offering per person every 45 s, so spamming the words does not flood the altar.
-const INCENSE_RE = /(th[aắ]p|d[aâ]ng)\s*(nhang|h[uư][oơ]ng)/;
-const lastIncense = new Map();
-function wantsIncense(id, text){
-  if (!INCENSE_RE.test(String(text).toLowerCase().normalize('NFC'))) return false;
-  const now = Date.now(); if (now - (lastIncense.get(id) || 0) < 45_000) return false;
-  lastIncense.set(id, now); if (lastIncense.size > 5000) lastIncense.clear();
+/* comment commands */
+// A comment containing a keyword triggers its action: incense / flower (walk up and offer), xam (draw a fortune),
+// bow (walk up and bow three times before the altar, nothing in hand). Keywords are the built-in ones below plus the *starred* words of every menu row
+// (settings.guide) that has an action, so what the overlay's menu tells viewers to type always works.
+// Matching is by whole words. A comment typed with accents is matched with accents ("lấy" is not "lạy"); one typed
+// without any accent is matched against the keywords stripped of theirs ("lay phat" is "lạy Phật").
+const ACTIONS = ['xam', 'flower', 'incense', 'bow'];        // priority when one comment holds several
+const BUILTIN_KEYWORDS = {
+  incense: ['dâng hương', 'thắp nhang', 'thắp hương', 'dâng nhang'],
+  flower: ['dâng hoa', 'dâng sen'],
+  xam: ['quẻ tử vi', 'xin quẻ', 'xin xăm', 'rút xăm', 'gieo quẻ'],
+  bow: ['lạy', 'lậy', 'vái'],
+};
+const plainWords = t => String(t).toLowerCase().normalize('NFC').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+const noMarks = t => t.normalize('NFD').replace(/\p{M}/gu, '').replace(/đ/g, 'd');
+const starred = text => String(text).split('*').filter((_, i) => i % 2).map(plainWords).filter(Boolean);
+let keywords = [];
+function buildKeywords(){
+  const list = [];
+  for (const a of ACTIONS){
+    const words = new Set(BUILTIN_KEYWORDS[a].map(plainWords));
+    for (const r of settings.guide) if (r.action === a) for (const w of starred(r.text)) words.add(w);
+    for (const w of words) list.push({ action: a, w, bare: noMarks(w) });
+  }
+  keywords = list;
+}
+function findAction(text){
+  const t = plainWords(text), bare = noMarks(t), marked = bare !== t;
+  const hay = ' ' + (marked ? t : bare) + ' ';
+  for (const a of ACTIONS) if (keywords.some(k => k.action === a && hay.includes(' ' + (marked ? k.w : k.bare) + ' '))) return a;
+  return null;
+}
+// One trip to the altar (offering or bow) per person every 45 s, so spamming the words does not flood the altar.
+const lastAct = new Map();
+function cooled(id){
+  const now = Date.now(); if (now - (lastAct.get(id) || 0) < 45_000) return false;
+  lastAct.set(id, now); if (lastAct.size > 5000) lastAct.clear();
   return true;
 }
+const ACT_LOG = { incense: ['🙏', 'lên dâng hương'], flower: ['🪷', 'lên dâng hoa'], bow: ['🙇', 'lên vái lạy'] };
 
-// "xin xăm" draws a fortune stick (live/xam.mjs), free, but once per viewer for the whole live. Asking again puts a small
+// "xin xăm" / "quẻ tử vi" draws a fortune stick (live/xam.mjs), free, but once per viewer for the whole live. Asking again puts a small
 // bubble over that viewer's head only (no banner, no bell: the stream is shared by everyone), once per 30 s each.
-const XAM_RE = /xin\s*x[aă]m|r[uú]t\s*x[aă]m|gieo\s*qu[eẻ]/;
 const xamDrawn = new Set(), xamAsked = new Map();
-const wantsXam = text => XAM_RE.test(String(text).toLowerCase().normalize('NFC'));
 function sendXam(v){
   const no = Math.floor(Math.random() * XAM.length), x = XAM[no];
   broadcast({ t:'xam', id: v.id, name: v.name, no: no + 1, level: x.level, poem: x.poem, meaning: x.meaning });
@@ -117,11 +159,11 @@ function onXamAsk(v){
   if (!xamDrawn.has(v.id)){ xamDrawn.add(v.id); return sendXam(v); }
   const before = xamAsked.get(v.id) || 0;
   xamAsked.set(v.id, Date.now()); if (xamAsked.size > 5000) xamAsked.clear();
-  if (Date.now() - before > 30_000) broadcast({ t:'hint', id: v.id, text: '🎋 Mỗi người chỉ xin Xăm 1 lần' });
+  if (Date.now() - before > 30_000) broadcast({ t:'hint', id: v.id, text: '🔮 Mỗi người chỉ xin Quẻ 1 lần' });
 }
 
 function pub(v){ return { id:v.id, name:v.name, skin:v.skin, avatar:v.avatar||'', coins:v.coins }; }
-function snapshot(){ return { t:'state', tracks: musicFiles, track: musicTrack(), musicSeq, settings, viewers:[...viewers.values()].map(pub), cap: capacity(), startedAt, tiktok: tiktokState, merit: topMerit(), version: VERSION, sceneAt }; }
+function snapshot(){ return { t:'state', tracks: musicFiles, bgs: bgFiles, track: musicTrack(), musicSeq, settings, viewers:[...viewers.values()].map(pub), cap: capacity(), startedAt, tiktok: tiktokState, merit: topMerit(), version: VERSION, sceneAt }; }
 
 function cleanName(name, id){
   name = String(name || id || '').slice(0, 18);
@@ -164,12 +206,13 @@ function onChat(id, name, text, avatar, emotes = []){
   const { v, isNew } = seat(id, name, { avatar, skin: want || undefined });
   if (!v) return;
   if (!isNew && want && want !== v.skin){ v.skin = want; broadcast({ t:'skin', id, skin: want }); }
-  // a masked comment is never read aloud as a prayer, nor a command ("xin xăm", "thắp nhang", "nữ"…)
-  const command = want || wantsXam(text) || INCENSE_RE.test(text.toLowerCase().normalize('NFC'));
-  if (!dirty && text.trim() && !command){ v.lastText = text; v.lastTextAt = Date.now(); }
+  // a masked comment is never read aloud as a prayer, nor a command ("xin xăm", "dâng hương", "nữ"…). A bow is: "Con lạy
+  // Phật, cầu gia đình bình an" is exactly the prayer a gift banner should carry.
+  const action = dirty ? null : findAction(text);
+  if (!dirty && text.trim() && !want && (!action || action === 'bow')){ v.lastText = text; v.lastTextAt = Date.now(); }
   broadcast({ t:'chat', id, name: v.name, text, emotes: dirty ? [] : emotes });
-  if (!dirty && wantsIncense(id, text)){ broadcast({ t:'incense', id, name: v.name }); addLog(`🙏 ${v.name} lên thắp nhang`); }
-  if (!dirty && wantsXam(text)) onXamAsk(v);
+  if (action === 'xam') onXamAsk(v);
+  else if (action && cooled(id)){ broadcast({ t:'incense', id, name: v.name, kind: action }); addLog(`${ACT_LOG[action][0]} ${v.name} ${ACT_LOG[action][1]}`); }
 }
 
 // Someone opened the live: the overlay greets them by name + avatar and they take a seat in the hall.
@@ -219,9 +262,9 @@ function scheduleChant(){ clearInterval(chantTimer); if (settings.autoChant) cha
 // Auto scene switch: every sceneEveryMin minutes, the next scene not in sceneOff. Picking a scene by hand restarts the wait.
 let sceneTimer = null, sceneAt = 0;
 function nextScene(){
-  const on = SCENE_IDS.filter(id => !settings.sceneOff.includes(id)), list = on.length ? on : SCENE_IDS;
+  const ids = allScenes(), on = ids.filter(id => !settings.sceneOff.includes(id)), list = on.length ? on : ids;
   const next = list[(list.indexOf(settings.scene) + 1) % list.length];
-  if (next !== settings.scene){ settings.scene = next; saveSettings(); addLog('🏞 Chuyển cảnh: ' + SCENE_NAMES[next]); }
+  if (next !== settings.scene){ settings.scene = next; saveSettings(); addLog('🏞 Chuyển cảnh: ' + sceneName(next)); }
   scheduleScene(); broadcast({ t:'settings', settings, cap: capacity(), sceneAt });
 }
 // Background music: every audio file in assets/music is a track, files added while running show up by themselves.
@@ -232,10 +275,19 @@ function scanMusic(){
   try { return fs.readdirSync(MUSIC_DIR).filter(f => !f.startsWith('.') && /\.(mp3|m4a|ogg|wav)$/i.test(f)).sort((a, b) => a.localeCompare(b, 'vi')); }
   catch { return []; }
 }
-let musicFiles = scanMusic(), musicSeq = 0, musicBag = [], musicWatch = null;
-try { fs.watch(MUSIC_DIR, () => { clearTimeout(musicWatch); musicWatch = setTimeout(() => {
-  const l = scanMusic(); if (l.join('\n') !== musicFiles.join('\n')){ musicFiles = l; broadcast({ t:'tracks', tracks: l }); addLog(`🎵 Thư mục nhạc có ${l.length} bài`); }
-}, 800); }); } catch {}
+let musicFiles = scanMusic(), musicSeq = 0, musicBag = [], musicWatch = null, bgWatch = null;
+function refreshMusic(){
+  const l = scanMusic(); if (l.join('\n') === musicFiles.join('\n')) return;
+  musicFiles = l; broadcast({ t:'tracks', tracks: l }); addLog(`🎵 Thư mục nhạc có ${l.length} bài`);
+  if (settings.track && !l.includes(settings.track) && l.length) nextTrack();                  // the track playing was deleted
+}
+function refreshBg(){
+  const l = scanBg(); if (l.join('\n') === bgFiles.join('\n')) return;
+  bgFiles = l; broadcast({ t:'bgs', bgs: l }); addLog(`🖼 Có ${l.length} ảnh nền tự tải`);
+  if (!allScenes().includes(settings.scene)){ settings.scene = 'hall'; saveSettings(); scheduleScene(); broadcast({ t:'settings', settings, cap: capacity(), sceneAt }); }
+}
+try { fs.watch(MUSIC_DIR, () => { clearTimeout(musicWatch); musicWatch = setTimeout(refreshMusic, 800); }); } catch {}
+try { fs.mkdirSync(BG_DIR, { recursive: true }); fs.watch(BG_DIR, () => { clearTimeout(bgWatch); bgWatch = setTimeout(refreshBg, 800); }); } catch {}
 const musicTrack = () => musicFiles.includes(settings.track) ? settings.track : musicFiles[0] || '';
 const trackTitle = f => f.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
 // random order, each ticked track once per round, never the same one twice in a row
@@ -452,6 +504,7 @@ function onControl(m){
       scheduleChant(); broadcast({ t:'settings', settings, cap: capacity(), sceneAt }); break;
     }
     case 'nextScene': nextScene(); break;
+    case 'deleteFile': deleteUpload(String(m.kind), String(m.name)); break;
     case 'playTrack': playTrack(String(m.name || ''), 'Phát bài'); break;
     case 'nextTrack': nextTrack(); break;
     case 'block': if (m.id) block(String(m.id), 'chặn tay'); break;
@@ -468,18 +521,27 @@ const SETTING_RULES = {
   prayerFromChat: Boolean, filterOn: Boolean, xamOn: Boolean,
   filterMode: v => v === 'mask' ? 'mask' : 'hide', filterStrikes: v => clamp(v, 0, 20), filterExtra: v => String(v).slice(0, 3000),
   audioOut: v => String(v).slice(0, 120),
-  scene: v => SCENE_IDS.includes(v) ? v : 'hall', sceneAuto: Boolean, sceneEveryMin: v => clamp(v, 1, 240),
-  sceneOff: v => SCENE_IDS.filter(id => Array.isArray(v) && v.includes(id)),
+  scene: v => allScenes().includes(v) ? v : 'hall', sceneAuto: Boolean, sceneEveryMin: v => clamp(v, 1, 240),
+  sceneOff: v => allScenes().filter(id => Array.isArray(v) && v.includes(id)),
+  bgAltar: Boolean,
+  guide: v => { const l = (Array.isArray(v) ? v : []).slice(0, 8).map(r => ({ icon: String(r?.icon || '').slice(0, 8), text: String(r?.text || '').slice(0, 40),
+      action: ACTIONS.includes(r?.action) ? r.action : r?.action === undefined ? guessAction(r?.text) : '' })).filter(r => r.icon || r.text);
+    return l.length ? l : DEFAULT_GUIDE; },
   track: v => String(v).slice(0, 200), musicAuto: Boolean,
   musicOff: v => Array.isArray(v) ? v.slice(0, 500).map(f => String(f).slice(0, 200)) : [],
   outfits: v => { const l = OUTFIT_IDS.filter(id => Array.isArray(v) && v.includes(id)); return l.length ? l : ['lam']; },
 };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, Math.round(+v || 0)));
+// menu rows saved before rows had an action: take it from the built-in keyword the row shows, if any
+function guessAction(text){ const w = starred(text || ''); return ACTIONS.find(a => BUILTIN_KEYWORDS[a].some(k => w.includes(plainWords(k)))) || ''; }
 function applySettings(o){
+  if (Array.isArray(o.guide) && o.guide.length < 8 && o.guide.every(r => r && !('action' in r)) && !o.guide.some(r => guessAction(r.text) === 'bow'))
+    o = { ...o, guide: [...o.guide, DEFAULT_GUIDE.at(-1)] };                                  // menu from before actions: show the new "Lạy · Vái"
   if (Array.isArray(o.sceneCycle) && !('sceneOff' in o)) o = { ...o, sceneOff: ['hall', 'bamboo', 'lotus', 'peak'].filter(id => !o.sceneCycle.includes(id)) };   // config.json from v2026.11.03
-  for (const [k, fn] of Object.entries(SETTING_RULES)) if (k in o) settings[k] = fn(o[k]); wordFilter.setExtraWords(settings.filterExtra); }
+  for (const [k, fn] of Object.entries(SETTING_RULES)) if (k in o) settings[k] = fn(o[k]); wordFilter.setExtraWords(settings.filterExtra); buildKeywords(); }
 function saveSettings(){ try { fs.writeFileSync(CONFIG, JSON.stringify(settings, null, 2)); } catch (e) { addLog('Không lưu được cài đặt: ' + e.message); } }
 try { applySettings(JSON.parse(fs.readFileSync(CONFIG, 'utf8'))); } catch {}
+buildKeywords();                                                              // also when there is no config.json yet
 if (settings.musicAuto && musicFiles.length) settings.track = pickTrack();     // every live opens on a different track
 scheduleChant(); scheduleScene();
 
@@ -510,10 +572,63 @@ function resolveStatic(urlPath){
   if (!file.startsWith(ROOT + SEP)) return null;
   return file;
 }
+/* -------------------------------------------------------------- uploads */
+// The panel uploads music (assets/music) and backgrounds (assets/bg) as a plain POST of the file's bytes.
+//  • same Host rule as everything else, plus an Origin from this server: pages on other sites can't post here
+//  • a custom header, which a cross-site form can't send without a CORS preflight this server never answers
+//  • known extensions only, checked against the file's first bytes; size capped; never overwrites (adds " (2)")
+const startsWith = (b, s, at = 0) => b.length >= at + s.length && b.toString('latin1', at, at + s.length) === s;
+const UPLOADS = {
+  music: { dir: MUSIC_DIR, max: 60e6, ext: /\.(mp3|m4a|ogg|wav)$/i, label: 'nhạc .mp3 .m4a .ogg .wav', after: refreshMusic,
+    sniff: b => startsWith(b, 'ID3') || (b[0] === 0xFF && (b[1] & 0xE0) === 0xE0) || startsWith(b, 'ftyp', 4) || startsWith(b, 'OggS') || (startsWith(b, 'RIFF') && startsWith(b, 'WAVE', 8)) },
+  bg: { dir: BG_DIR, max: 20e6, ext: /\.(jpe?g|png|webp)$/i, label: 'ảnh .jpg .png .webp', after: refreshBg,
+    sniff: b => (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) || startsWith(b, '\x89PNG') || (startsWith(b, 'RIFF') && startsWith(b, 'WEBP', 8)) },
+};
+function cleanFileName(n){
+  n = path.basename(String(n || '').normalize('NFC')).replace(/[\\/:*?"<>|\x00-\x1f]/g, '').replace(/^[.\s]+/, '').trim();
+  const ext = path.extname(n), base = n.slice(0, n.length - ext.length).slice(0, 100 - ext.length).trim();
+  return base && ext.length <= 6 ? base + ext : '';
+}
+function freeName(dir, n){
+  const ext = path.extname(n), base = n.slice(0, -ext.length || undefined);
+  for (let i = 1; ; i++){ const f = i === 1 ? n : `${base} (${i})${ext}`; if (!fs.existsSync(path.join(dir, f))) return f; }
+}
+function onUpload(req, res, url){
+  const json = (code, o) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'X-Content-Type-Options': 'nosniff' }).end(JSON.stringify(o)); };
+  const fail = (code, error) => { req.resume(); json(code, { error }); };
+  let origin = ''; try { origin = new URL(req.headers.origin).host; } catch {}
+  if (!okHost(origin) || req.headers['x-chanhdien'] !== 'upload') return fail(403, 'Không được phép');
+  const u = UPLOADS[url.searchParams.get('kind')];
+  if (!u) return fail(400, 'Sai loại file');
+  const name = cleanFileName(url.searchParams.get('name'));
+  if (!name || !u.ext.test(name)) return fail(415, 'Chỉ nhận ' + u.label);
+  const len = +req.headers['content-length'];
+  if (!len || len > u.max) return fail(413, `File quá lớn (tối đa ${u.max / 1e6} MB)`);
+  const chunks = []; let got = 0;
+  req.on('data', c => { got += c.length; if (got > u.max) req.destroy(); else chunks.push(c); });
+  req.on('error', () => {});
+  req.on('end', () => {
+    const buf = Buffer.concat(chunks);
+    if (!u.sniff(buf)) return json(415, { error: 'File không đúng định dạng ' + u.label });
+    fs.mkdirSync(u.dir, { recursive: true });
+    const f = freeName(u.dir, name);
+    fs.writeFile(path.join(u.dir, f), buf, { flag: 'wx' }, err => {
+      if (err) return json(500, { error: 'Không lưu được: ' + err.message });
+      addLog(`⬆️ Đã tải lên ${f}`); u.after(); json(200, { ok: true, name: f });
+    });
+  });
+}
+function deleteUpload(kind, name){
+  const u = UPLOADS[kind], list = kind === 'music' ? musicFiles : bgFiles;
+  if (!u || !list.includes(name)) return;
+  fs.unlink(path.join(u.dir, name), err => { if (err) return addLog(`❌ Không xóa được ${name}: ${err.message}`); addLog(`🗑 Đã xóa ${name}`); u.after(); });
+}
+
 const server = http.createServer((req, res) => {
   if (!okHost(req.headers.host)) { res.writeHead(421).end('wrong host'); return; }
+  let url, p; try { url = new URL(req.url, 'http://x'); p = decodeURIComponent(url.pathname); } catch { res.writeHead(400).end(); return; }
+  if (req.method === 'POST' && p === '/upload') return onUpload(req, res, url);
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405).end(); return; }
-  let p; try { p = decodeURIComponent(new URL(req.url, 'http://x').pathname); } catch { res.writeHead(400).end(); return; }
   const file = resolveStatic(p);
   if (!file) { res.writeHead(404).end('not found'); return; }
   fs.stat(file, (err, st) => {

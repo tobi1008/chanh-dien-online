@@ -150,6 +150,14 @@ button.sm{padding:5px 10px;font-size:12px}
 .outfits{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
 .outfits canvas{aspect-ratio:1}
 .outfits .scene.on::before{content:"Đang dùng"}
+.scene .del,.track .del{padding:3px 8px;font-size:12px;border-radius:8px}
+.scene .del{position:absolute;top:6px;right:6px;z-index:1;background:rgba(20,10,4,.75)}
+.track .del{margin-right:6px}
+.upl{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.guide-rows{display:grid;gap:8px}
+.guide-row{display:grid;grid-template-columns:64px 1fr 180px auto auto;gap:8px;align-items:center}
+.guide-warn{margin:0;padding:8px 12px;border-radius:10px;border:1px solid #8a3624;background:rgba(74,26,16,.4);color:#ffc6b8;font-size:12.5px}
+.guide-row input:first-child{text-align:center;font-size:18px;padding:6px}
 .scene.on::before{content:"Đang chiếu";position:absolute;top:6px;left:6px;padding:2px 8px;border-radius:999px;background:var(--gold);color:#2a1405;font-size:11px;font-weight:700;pointer-events:none}
 
 /* toast */
@@ -232,13 +240,13 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
             <h3>Thử một người xem</h3>
             <label>Tên người xem<input id="simName" value="Minh An"></label>
             <label>Bình luận / lời nguyện<input id="simText" value="Nam mô A Di Đà Phật, cầu gia đình bình an"></label>
-            <div class="btns"><button id="btnChat">💬 Gửi bình luận</button><button id="btnEnter">👋 Thử vào xem</button><button id="btnIncense">🙏 Thắp nhang</button></div>
+            <div class="btns"><button id="btnChat">💬 Gửi bình luận</button><button id="btnEnter">👋 Thử vào xem</button><button id="btnIncense">🙏 Dâng hương</button><button id="btnFlower">🪷 Dâng hoa</button><button id="btnXam">🔮 Quẻ tử vi</button><button id="btnBow">🙇 Lạy</button></div>
             <div class="gifts">
               <button data-gift="Hoa hồng" data-dia="1"><span>🌹</span>Hoa hồng<small>1 xu</small></button>
               <button data-gift="Đèn hoa sen" data-dia="30"><span>🪷</span>Hoa sen<small>30 xu</small></button>
               <button data-gift="Chuông vàng" data-dia="199"><span>🔔</span>Chuông<small>199 xu</small></button>
             </div>
-            <p class="hint">Gõ <b>nam · nữ · sư · ni · tiểu · bà · cao tăng</b> làm bình luận để đổi hình. Bình luận <b>thắp nhang</b> hoặc <b>dâng hương</b> thì người đó lên bàn thờ thắp nhang.</p>
+            <p class="hint">Bình luận <b>dâng hương</b> (hoặc <b>thắp nhang</b>) thì người đó lên bàn thờ dâng hương, <b>dâng hoa</b> thì dâng hoa sen, <b>quẻ tử vi</b> (hoặc <b>xin xăm</b>) thì lên rút quẻ, <b>lạy</b> / <b>vái</b> thì lên bục vái lạy 3 lần. Từ khóa thêm trong <i>Cảnh &amp; quà → Menu hướng dẫn</i> cũng dùng được. Chỉ người đang ở bàn thờ mới hiện tên.</p>
           </div>
           <div class="group">
             <h3>Chánh điện</h3>
@@ -258,7 +266,8 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
             <label class="sw"><span>Tự động chuyển bài<small id="musicInfo"></small></span><input type="checkbox" id="musicAuto" checked></label>
             <div class="row"><button id="btnNextTrack">⏭ Bài tiếp theo</button></div>
           </div>
-          <p class="hint">Bấm vào tên bài để phát ngay. Thêm bài: chép file .mp3 / .m4a / .ogg / .wav vào thư mục <b>assets/music</b>, danh sách tự cập nhật. Chỉ dùng nhạc bạn có quyền (tự tạo hoặc miễn phí bản quyền).</p>
+          <div class="upl"><button id="btnUpMusic">⬆️ Tải nhạc lên</button><input type="file" id="upMusic" accept=".mp3,.m4a,.ogg,.wav" multiple hidden><span class="hint" id="upMusicInfo"></span></div>
+          <p class="hint">Bấm vào tên bài để phát ngay. Thêm bài: bấm <b>Tải nhạc lên</b> (.mp3 / .m4a / .ogg / .wav, tối đa 60 MB, chọn được nhiều file) hoặc chép vào thư mục <b>assets/music</b>. Bấm 🗑 để xóa bài. Chỉ dùng nhạc bạn có quyền (tự tạo hoặc miễn phí bản quyền).</p>
         </div>
         <div class="cols">
           <div class="group">
@@ -294,6 +303,19 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
               <button id="btnNextScene">⏭ Cảnh tiếp theo</button>
             </div>
           </div>
+          <div class="cols">
+            <div class="upl"><button id="btnUpBg">🖼️ Tải ảnh nền lên</button><input type="file" id="upBg" accept=".jpg,.jpeg,.png,.webp" multiple hidden><span class="hint" id="upBgInfo"></span></div>
+            <label class="sw"><span>Vẽ bàn thờ và tượng Phật lên ảnh tự tải<small>Tắt nếu ảnh đã có sẵn bàn thờ</small></span><input type="checkbox" id="bgAltar" checked></label>
+          </div>
+          <p class="hint">Ảnh dọc 9:16 (1080×1920) đẹp nhất, ảnh khác tỉ lệ sẽ được cắt cho vừa khung. Nhận .jpg / .png / .webp, tối đa 20 MB. Bấm 🗑 trên ảnh để xóa.</p>
+        </div>
+        <div class="group">
+          <h3>Menu hướng dẫn trên màn hình</h3>
+          <div class="guide-rows" id="guideRows"></div>
+          <p class="guide-warn" id="guideWarn" hidden></p>
+          <div class="btns"><button id="btnGuideAdd">➕ Thêm dòng</button><button id="btnGuideReset">↺ Về mặc định</button></div>
+          <p class="hint">Mỗi dòng gồm biểu tượng, chữ và hành động, tối đa 8 dòng. Chữ trong <b>*dấu sao*</b> được tô vàng và là <b>từ khóa</b>: người xem bình luận đúng từ đó (có dấu hoặc không dấu) thì thực hiện hành động của dòng. Một dòng có thể có nhiều từ khóa, ví dụ <b>*Lạy* · *Vái*</b>. Sửa xong bấm Enter hoặc bấm ra ngoài là lưu.</p>
+          <p class="hint">Từ khóa có sẵn luôn dùng được: <b>dâng hương · thắp nhang · thắp hương</b> → dâng hương, <b>dâng hoa · dâng sen</b> → dâng hoa, <b>quẻ tử vi · xin quẻ · xin xăm · gieo quẻ</b> → rút quẻ, <b>lạy · vái</b> → lên bục vái lạy.</p>
         </div>
         <div class="group">
           <h3>Kiểu áo người xem</h3>
@@ -311,7 +333,7 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
           <div class="group">
             <h3>Khi có quà</h3>
             <label class="sw"><span>Dùng bình luận của người tặng làm lời nguyện<small>Bình luận có từ cấm sẽ không bao giờ được dùng</small></span><input type="checkbox" id="prayerFromChat" checked></label>
-            <label class="sw"><span>Xin xăm miễn phí<small>Mỗi người được xin 1 lần trong buổi live. Gõ "xin xăm" để lên bàn thờ rút quẻ.</small></span><input type="checkbox" id="xamOn" checked></label>
+            <label class="sw"><span>Xin xăm miễn phí<small>Mỗi người được xin 1 lần trong buổi live. Gõ "quẻ tử vi" hoặc "xin xăm" để lên bàn thờ rút quẻ.</small></span><input type="checkbox" id="xamOn" checked></label>
             <p class="hint">Tắt mục trên để banner quà chỉ dùng các câu nguyện có sẵn.</p>
           </div>
         </div>
@@ -376,7 +398,7 @@ try{ const t=$('tab-'+location.hash.slice(1)) || $(localStorage.getItem('cd.tab'
 
 /* settings */
 const SETTING_IDS = ['music','mo','autoChant','moBpm','chantEveryMin','title','subtitle','showEnter','syncViewers',
-  'prayerFromChat','filterOn','filterMode','filterStrikes','filterExtra','audioOut','xamOn','sceneAuto','sceneEveryMin','musicAuto'];
+  'prayerFromChat','filterOn','filterMode','filterStrikes','filterExtra','audioOut','xamOn','sceneAuto','sceneEveryMin','musicAuto','bgAltar'];
 // sound devices come from the overlay window; the saved one stays in the list even when the overlay doesn't see it,
 // otherwise the next settings save would quietly reset it to the default speakers
 let outNames=[], savedOut=''; const OUT_HINT=$('audioOutInfo').innerHTML;
@@ -386,8 +408,9 @@ function drawOuts(){
   sel.replaceChildren(new Option('Loa mặc định của máy',''), ...names.map(n => new Option(outNames.includes(n) ? n : n+' (không thấy)', n)));
   sel.value=savedOut;
 }
-function fillSettings(s){ if (s.audioOut!==undefined){ savedOut=s.audioOut; drawOuts(); } if (s.scene) curScene=s.scene; if (s.sceneOff) sceneOff=s.sceneOff; if (s.outfits) outfits=s.outfits; if (s.musicOff) musicOff=s.musicOff; if (tracks.includes(s.track)) curTrack=s.track; for (const k of SETTING_IDS){ const el=$(k); if (!el || s[k]===undefined || el===document.activeElement) continue; if (el.type==='checkbox') el.checked=!!s[k]; else el.value=s[k]; } $('brandTitle').textContent=s.title||'Chánh Điện Tịnh Tâm'; drawScenes(); drawOutfits(); drawTracks(); }
-function readSettings(){ const o={}; for (const k of SETTING_IDS){ const el=$(k); o[k] = el.type==='checkbox' ? el.checked : el.type==='number' ? +el.value : el.value; } o.scene=curScene; o.sceneOff=sceneOff; o.outfits=OUTFIT_ORDER.filter(id=>outfits.includes(id)); o.musicOff=musicOff; return o; }
+function fillSettings(s){ if (s.audioOut!==undefined){ savedOut=s.audioOut; drawOuts(); } if (s.scene) curScene=s.scene; if (s.sceneOff) sceneOff=s.sceneOff; if (s.outfits) outfits=s.outfits; if (s.musicOff) musicOff=s.musicOff; if (tracks.includes(s.track)) curTrack=s.track; if (s.guide && !$('guideRows').contains(document.activeElement)){ guide=s.guide; drawGuide(); }
+  if ('bgAltar' in s && SCENE_OPTS.bgAltar!==(s.bgAltar!==false)){ SCENE_OPTS.bgAltar=s.bgAltar!==false; sceneCards.filter(c=>c.id.startsWith('bg:')).forEach(drawThumb); } for (const k of SETTING_IDS){ const el=$(k); if (!el || s[k]===undefined || el===document.activeElement) continue; if (el.type==='checkbox') el.checked=!!s[k]; else el.value=s[k]; } $('brandTitle').textContent=s.title||'Chánh Điện Tịnh Tâm'; drawScenes(); drawOutfits(); drawTracks(); }
+function readSettings(){ const o={}; for (const k of SETTING_IDS){ const el=$(k); o[k] = el.type==='checkbox' ? el.checked : el.type==='number' ? +el.value : el.value; } o.scene=curScene; o.sceneOff=sceneOff; o.outfits=OUTFIT_ORDER.filter(id=>outfits.includes(id)); o.musicOff=musicOff; o.guide=guide; return o; }
 for (const k of SETTING_IDS) $(k).addEventListener('change', () => { if (send('settings', { settings: readSettings() })) toast('Đã lưu cài đặt'); });
 
 /* music */
@@ -402,17 +425,80 @@ function drawTracks(){
     b.onclick=()=>{ if (!on && send('playTrack', { name:f })) toast('Đang phát '+trackTitle(f)); };
     const cy=document.createElement('label'); cy.className='cy'; const ck=document.createElement('input'); ck.type='checkbox'; ck.checked=!musicOff.includes(f);
     ck.onchange=()=>{ musicOff = ck.checked ? musicOff.filter(x=>x!==f) : [...musicOff, f]; if (send('settings', { settings: readSettings() })) toast('Đã lưu cài đặt'); };
-    cy.append(ck, 'tự chuyển'); li.append(b, cy); return li;
+    cy.append(ck, 'tự chuyển'); li.append(b, cy, delBtn('music', f, trackTitle(f))); return li;
   }));
   const n=tracks.filter(f=>!musicOff.includes(f)).length;
   $('musicInfo').textContent = $('musicAuto').checked ? `Hết bài thì phát ngẫu nhiên bài khác (${n||tracks.length}/${tracks.length} bài có “tự chuyển”)` : 'Tắt: lặp lại bài đang phát';
 }
 $('btnNextTrack').onclick=()=>send('nextTrack');
 
+/* uploads: music → assets/music, backgrounds → assets/bg (one file at a time, with progress) */
+function upload(kind, files, info, done){
+  const list=[...files]; let i=0;
+  const next=()=>{
+    if (i>=list.length){ info.textContent=`✅ Đã tải lên ${list.length} file`; return; }
+    const f=list[i++], x=new XMLHttpRequest();
+    x.open('POST', `/upload?kind=${kind}&name=${encodeURIComponent(f.name)}`); x.setRequestHeader('X-ChanhDien','upload');
+    x.upload.onprogress=e=>{ if (e.lengthComputable) info.textContent=`⬆️ ${f.name}: ${Math.round(e.loaded/e.total*100)}%`; };
+    x.onload=()=>{ let r={}; try{ r=JSON.parse(x.responseText); }catch(e){}
+      if (x.status!==200){ info.textContent=`❌ ${f.name}: ${r.error||'lỗi '+x.status}`; toast('Tải lên không thành công'); return; }
+      done?.(r.name); next(); };
+    x.onerror=()=>{ info.textContent=`❌ ${f.name}: không gửi được (file quá lớn hoặc mất server)`; };
+    x.send(f);
+  };
+  next();
+}
+function delBtn(kind, name, label){
+  const b=document.createElement('button'); b.type='button'; b.className='del'; b.textContent='🗑'; b.title='Xóa '+label;
+  b.onclick=e=>{ e.stopPropagation(); if (confirm(`Xóa “${label}”? File sẽ bị xóa khỏi máy.`) && send('deleteFile', { kind, name })) toast('Đã xóa '+label); };
+  return b;
+}
+$('btnUpMusic').onclick=()=>$('upMusic').click();
+$('upMusic').onchange=e=>{ upload('music', e.target.files, $('upMusicInfo')); e.target.value=''; };
+$('btnUpBg').onclick=()=>$('upBg').click();
+$('upBg').onchange=e=>{ upload('bg', e.target.files, $('upBgInfo'), name=>{ curScene='bg:'+name; drawScenes(); saveScenes(); }); e.target.value=''; };
+
+/* guide menu shown on the overlay */
+const DEFAULT_GUIDE=[{icon:'💬',text:'Bình luận để vào',action:''},{icon:'🙏',text:'*Dâng hương*',action:'incense'},{icon:'🪷',text:'*Dâng hoa*',action:'flower'},
+  {icon:'🔮',text:'*Quẻ tử vi*',action:'xam'},{icon:'🙇',text:'*Lạy* · *Vái*',action:'bow'}];
+const GUIDE_ACTIONS=[['','Chỉ hiển thị'],['incense','🙏 Dâng hương'],['flower','🪷 Dâng hoa'],['xam','🔮 Rút quẻ'],['bow','🙇 Lên bục vái lạy']];
+const kwOf=t=>String(t).split('*').filter((_,i)=>i%2).map(w=>w.toLowerCase().normalize('NFC').replace(/[^\p{L}\p{N}]+/gu,' ').trim()).filter(Boolean);
+// rows that won't do what they say: an action without *keyword*, or the same keyword on two rows
+function checkGuide(){
+  const warn=[], seen=new Map();
+  guide.forEach((r,i)=>{ const kw=kwOf(r.text);
+    if (r.action && !kw.length) warn.push(`Dòng ${i+1} có hành động nhưng chưa có từ khóa trong *dấu sao*, người xem không biết gõ gì.`);
+    if (r.action) for (const w of kw){ if (seen.has(w) && seen.get(w)!==i) warn.push(`Từ khóa “${w}” bị trùng ở dòng ${seen.get(w)+1} và dòng ${i+1}.`); seen.set(w,i); } });
+  $('guideWarn').hidden=!warn.length; $('guideWarn').textContent='⚠️ '+warn.join(' ');
+}
+let guide=DEFAULT_GUIDE.map(r=>({...r}));
+const saveGuide=()=>{ if (send('settings', { settings: readSettings() })) toast('Đã lưu menu'); };
+function drawGuide(){
+  $('guideRows').replaceChildren(...guide.map((r,i)=>{
+    const row=document.createElement('div'); row.className='guide-row';
+    const ic=document.createElement('input'); ic.value=r.icon; ic.maxLength=8; ic.setAttribute('aria-label','Biểu tượng dòng '+(i+1));
+    const tx=document.createElement('input'); tx.value=r.text; tx.maxLength=40; tx.setAttribute('aria-label','Chữ dòng '+(i+1));
+    ic.onchange=()=>{ r.icon=ic.value.trim(); saveGuide(); }; tx.onchange=()=>{ r.text=tx.value.trim(); checkGuide(); saveGuide(); };
+    const act=document.createElement('select'); act.setAttribute('aria-label','Hành động dòng '+(i+1));
+    act.append(...GUIDE_ACTIONS.map(([v,l])=>new Option(l,v))); act.value=r.action||'';
+    act.onchange=()=>{ r.action=act.value; checkGuide(); saveGuide(); };
+    const up=document.createElement('button'); up.type='button'; up.className='sm'; up.textContent='↑'; up.title='Đưa lên'; up.disabled=!i;
+    up.onclick=()=>{ [guide[i-1],guide[i]]=[guide[i],guide[i-1]]; drawGuide(); saveGuide(); };
+    const del=document.createElement('button'); del.type='button'; del.className='sm'; del.textContent='🗑'; del.title='Xóa dòng';
+    del.onclick=()=>{ if (guide.length<=1) return toast('Cần ít nhất một dòng'); guide.splice(i,1); drawGuide(); saveGuide(); };
+    row.append(ic,tx,act,up,del); return row; }));
+  $('btnGuideAdd').disabled = guide.length>=8; checkGuide();
+}
+$('btnGuideAdd').onclick=()=>{ if (guide.length>=8) return; guide.push({icon:'✨',text:'*Lời mới*',action:''}); drawGuide(); $('guideRows').lastChild.children[1].focus(); saveGuide(); };
+$('btnGuideReset').onclick=()=>{ guide=DEFAULT_GUIDE.map(r=>({...r})); drawGuide(); saveGuide(); };
+drawGuide();
+
 /* scenes */
-const SCENE_ORDER=Object.keys(SCENES); let curScene='hall', sceneOff=[], sceneAt=0;
+const SCENE_ORDER=Object.keys(SCENES); let curScene='hall', sceneOff=[], sceneAt=0, bgs=[];
+const sceneIds=()=>[...SCENE_ORDER, ...bgs.map(f=>'bg:'+f)];
 const saveScenes=()=>send('settings', { settings: readSettings() });
-const sceneCards=SCENE_ORDER.map(id=>{
+const sceneCards=SCENE_ORDER.map(id=>makeSceneCard(id));
+function makeSceneCard(id){
   const s=SCENES[id], card=document.createElement('div'); card.className='scene';
   const b=document.createElement('button'); b.type='button'; b.title='Chiếu cảnh này ngay';
   const cv=document.createElement('canvas'); cv.width=180; cv.height=320;
@@ -421,14 +507,29 @@ const sceneCards=SCENE_ORDER.map(id=>{
   const cy=document.createElement('label'); cy.className='cy'; const ck=document.createElement('input'); ck.type='checkbox';
   ck.onchange=()=>{ sceneOff = ck.checked ? sceneOff.filter(x=>x!==id) : [...sceneOff, id]; if (saveScenes()) toast('Đã lưu cài đặt'); drawScenes(); };
   cy.append(ck, 'tự chuyển'); card.append(b, cy); $('scenes').append(card);
+  if (s.custom) card.append(delBtn('bg', id.slice(3), s.name));
   return { id, card, ck, cv, b };
-});
+}
+// uploaded backgrounds: one card each after the built-in scenes, thumbnail painted once the photo has loaded
+function syncBgCards(){
+  for (let i=sceneCards.length-1;i>=0;i--){ const c=sceneCards[i]; if (c.id.startsWith('bg:') && !bgs.includes(c.id.slice(3))){ c.card.remove(); sceneCards.splice(i,1); } }
+  for (const f of bgs){ const id='bg:'+f; if (sceneCards.some(c=>c.id===id)) continue;
+    const s=customScene(f), c=makeSceneCard(id); sceneCards.push(c);
+    Promise.all([s.custom.decode(), thumbImg.buddha.decode()]).then(()=>drawThumb(c)).catch(()=>{}); }
+  drawScenes();
+}
+const thumbBig=document.createElement('canvas'); thumbBig.width=1080; thumbBig.height=1920;
+function drawThumb(c){
+  const s=SCENES[c.id], bg=sceneBackdrop(s, thumbImg), g=thumbBig.getContext('2d'); if (!bg) return;
+  g.clearRect(0,0,1080,1920); g.drawImage(bg,0,0,1080,1920); sceneBack(g, s, 3, 0, 1);
+  c.cv.getContext('2d').drawImage(thumbBig,0,0,180,320); s.canvas=null;          // the full-size copy isn't needed here
+}
 function drawScenes(){
   for (const c of sceneCards){ c.card.classList.toggle('on', c.id===curScene); c.ck.checked=!sceneOff.includes(c.id); c.b.setAttribute('aria-pressed', c.id===curScene); }
   drawSceneInfo();
 }
 function drawSceneInfo(){
-  const on = SCENE_ORDER.filter(id=>!sceneOff.includes(id)), list = on.length ? on : SCENE_ORDER, next = SCENES[list[(list.indexOf(curScene)+1)%list.length]];
+  const ids = sceneIds(), on = ids.filter(id=>!sceneOff.includes(id)), list = on.length ? on : ids, next = SCENES[list[(list.indexOf(curScene)+1)%list.length]] || SCENES.hall;
   const left = Math.max(0, Math.round((sceneAt-Date.now())/1000));
   $('sceneInfo').textContent = !$('sceneAuto').checked ? 'Lần lượt qua các cảnh có đánh dấu “tự chuyển”'
     : sceneAt ? `Tiếp theo: ${next.icon} ${next.name} sau ${Math.floor(left/60)}:${String(left%60).padStart(2,'0')}` : `Tiếp theo: ${next.icon} ${next.name}`;
@@ -438,12 +539,7 @@ $('btnNextScene').onclick=()=>send('nextScene');
 // thumbnails: each scene painted full size once, then scaled down
 const thumbImg={ hall:new Image(), bamboo:new Image(), buddha:new Image() }; thumbImg.hall.src='/assets/hall.jpg'; thumbImg.bamboo.src='/assets/bamboo.jpg'; thumbImg.buddha.src='/assets/buddha.png';
 Promise.all(Object.values(thumbImg).map(i=>i.decode().catch(()=>{}))).then(()=>{
-  const big=document.createElement('canvas'); big.width=1080; big.height=1920; const g=big.getContext('2d');
-  sceneCards.forEach((c,i)=>setTimeout(()=>{
-    const s=SCENES[c.id], bg=sceneBackdrop(s, thumbImg); if (!bg) return;
-    g.clearRect(0,0,1080,1920); g.drawImage(bg,0,0,1080,1920); sceneBack(g, s, 3, 0, 1);
-    c.cv.getContext('2d').drawImage(big,0,0,180,320); s.canvas=null;          // the full-size copy isn't needed here
-  }, 60*i));
+  sceneCards.filter(c=>!c.id.startsWith('bg:')).forEach((c,i)=>setTimeout(()=>drawThumb(c), 60*i));
 });
 
 /* outfits: previews recoloured by live/scenes.js */
@@ -533,9 +629,10 @@ function connect(){
     const m = JSON.parse(e.data);
     switch (m.t){
       case 'state': if (m.version && pageVersion && m.version!==pageVersion){ location.reload(); return; } pageVersion=m.version; $('ver').textContent='Phiên bản '+m.version;
-        sceneAt=m.sceneAt||0; tracks=m.tracks||[]; curTrack=m.track||''; fillSettings(m.settings); setTT(m.tiktok); startedAt=m.startedAt; people.clear(); for (const v of m.viewers) people.set(v.id,v); renderPeople(); break;
+        sceneAt=m.sceneAt||0; bgs=m.bgs||[]; syncBgCards(); tracks=m.tracks||[]; curTrack=m.track||''; fillSettings(m.settings); setTT(m.tiktok); startedAt=m.startedAt; people.clear(); for (const v of m.viewers) people.set(v.id,v); renderPeople(); break;
       case 'settings': if ('sceneAt' in m) sceneAt=m.sceneAt||0; fillSettings(m.settings); break;
       case 'tracks': tracks=m.tracks; drawTracks(); break;
+      case 'bgs': bgs=m.bgs; syncBgCards(); break;
       case 'track': curTrack=m.track; drawTracks(); break;
       case 'logs': logEl.replaceChildren(); m.lines.forEach(logLine); break;
       case 'log': logLine(m.line); break;
@@ -575,7 +672,10 @@ const openOverlayHere = () => { const h=screen.availHeight||960; window.open('/l
 $('btnOverlay').onclick = () => { if (/Windows/i.test(navigator.userAgent)) send('openOverlay'); else openOverlayHere(); };
 $('btnPreview').onclick = e => { const off=$('preview').classList.toggle('off'); e.currentTarget.textContent=off?'Hiện':'Ẩn'; e.currentTarget.setAttribute('aria-pressed',!off); if (off) $('pv').src='about:blank'; else $('pv').src='/live/overlay.html?preview=1'; };
 $('btnChat').onclick = () => send('chat', { name: $('simName').value, text: $('simText').value });
-$('btnIncense').onclick = () => send('chat', { name: $('simName').value, text: 'Thắp nhang' });
+$('btnIncense').onclick = () => send('chat', { name: $('simName').value, text: 'Dâng hương' });
+$('btnFlower').onclick = () => send('chat', { name: $('simName').value, text: 'Dâng hoa' });
+$('btnXam').onclick = () => send('chat', { name: $('simName').value, text: 'Quẻ tử vi' });
+$('btnBow').onclick = () => send('chat', { name: $('simName').value, text: 'Con lạy Phật' });
 $('btnEnter').onclick = () => send('enter', { name: $('simName').value });
 $('simText').onkeydown = e => { if (e.key==='Enter') $('btnChat').click(); };
 document.querySelectorAll('[data-gift]').forEach(b => b.onclick = () => send('gift', { name: $('simName').value, gift: b.dataset.gift, diamonds: +b.dataset.dia, count: 1 }));

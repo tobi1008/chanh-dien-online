@@ -544,7 +544,7 @@ function flames(g, t, a){
 }
 
 const SCENES = {
-  hall:   { name:'Chánh điện', icon:'🏯', image:'hall', flicker:true },
+  hall:   { name:'Chánh điện', icon:'🏯', image:'hall', flicker:true, buddhaScale:1.4 },
   bamboo: { name:'Rừng trúc', icon:'🎋', image:'bamboo', front:bambooFront, cushion:['#4a3a22','#8a7448','#b59d6a'] },
   lotus:  { name:'Hồ sen đêm trăng', icon:'🌕', paint:paintLotus, back:lotusBack, front:lotusFront, cushion:['#3a120c','#7a2a1a','#a8442a'] },
   peak:   { name:'Đỉnh núi bình minh', icon:'🌄', paint:paintPeak, back:peakBack, front:peakFront, cushion:['#6a3410','#b5652a','#e39a52'] },
@@ -554,15 +554,44 @@ const SCENES = {
   spring: { name:'Mai vàng ngày xuân', icon:'🌼', paint:paintSpring, back:springBack, front:springFront, cushion:['#5a3a06','#b08020','#e8c050'] },
 };
 for (const [id, s] of Object.entries(SCENES)){ s.id = id; s.st = {}; }
+// Backgrounds uploaded from the panel (assets/bg), scene id "bg:<file>": the photo cropped to fill 9:16. With SCENE_OPTS.bgAltar the
+// altar and statue are painted on top, so offerings, the fortune draw and the gift close-up still have somewhere to go.
+const SCENE_OPTS = { bgAltar: true };     // set by the page from settings.bgAltar
+function customScene(file){
+  const id = 'bg:' + file; if (SCENES[id]) return SCENES[id];
+  const im = new Image(); im.src = '/assets/bg/' + encodeURIComponent(file);
+  return SCENES[id] = { id, st:{}, name: file.replace(/\.[^.]+$/, ''), icon:'🖼️', custom: im, cushion:['#4a2a14','#8a5a2a','#c08a4a'] };
+}
+function paintCustom(g, s, img){
+  const im = s.custom, k = Math.max(W/im.naturalWidth, H/im.naturalHeight), w = im.naturalWidth*k, h = im.naturalHeight*k;
+  g.drawImage(im, (W-w)/2, (H-h)/2, w, h);
+  if (SCENE_OPTS.bgAltar) altar(g, img.buddha, { stone:['#5a4438','#8a6c58','#c8a68a'], table:['#5a160c','#8a2414','#b0381e','#e2b04f'], cloth:true });
+}
 // Painted backdrop for a scene: the hall photo itself, or a 1080×1920 canvas painted once (null until the images load).
+// buddhaScale: the statue (cut from the hall painting, at 410,470) painted again larger over itself, standing on the same plinth.
 function sceneBackdrop(s, img){
-  if (s.image) return img[s.image]?.naturalWidth ? img[s.image] : null;
+  if (s.image && !s.buddhaScale) return img[s.image]?.naturalWidth ? img[s.image] : null;
+  if (s.custom){
+    if (!s.custom.naturalWidth || !img.buddha?.naturalWidth) return null;
+    if (s.canvas && s.canvasAltar === SCENE_OPTS.bgAltar) return s.canvas;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    paintCustom(c.getContext('2d'), s, img); s.canvasAltar = SCENE_OPTS.bgAltar; return s.canvas = c;
+  }
   if (s.canvas) return s.canvas;
+  if (s.image){
+    const bg = img[s.image], b = img.buddha;
+    if (!bg?.naturalWidth || !b?.naturalWidth) return null;
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+    g.drawImage(bg, 0, 0, W, H);
+    const w = b.naturalWidth*s.buddhaScale, h = b.naturalHeight*s.buddhaScale;
+    g.drawImage(b, 540-w/2, 470+b.naturalHeight-h, w, h);
+    return s.canvas = c;
+  }
   if (!img.buddha?.naturalWidth) return null;
   const c = document.createElement('canvas'); c.width = W; c.height = H;
   s.paint(c.getContext('2d'), img); return s.canvas = c;
 }
-function sceneBack(g, s, t, dt, a){ if (s.back) s.back(g, t, dt, a, s.st); if (s.paint) flames(g, t, a); }
+function sceneBack(g, s, t, dt, a){ if (s.back) s.back(g, t, dt, a, s.st); if (s.paint || (s.custom && SCENE_OPTS.bgAltar)) flames(g, t, a); }
 function sceneFront(g, s, t, dt, a){ if (s.front) s.front(g, t, dt, a, s.st); }
 // prayer mat under a seated person (painted scenes only: the hall painting has its own cushions)
 function sceneCushion(g, s, x, y, k, a){
@@ -602,5 +631,5 @@ function outfitImg(img, id){
   }
   g.putImageData(d, 0, 0); recolored.set(key, c); return c;
 }
-Object.assign(window, { SCENES, sceneBackdrop, sceneBack, sceneFront, sceneCushion, OUTFITS, outfitImg });
+Object.assign(window, { SCENES, SCENE_OPTS, customScene, sceneBackdrop, sceneBack, sceneFront, sceneCushion, OUTFITS, outfitImg });
 })();
