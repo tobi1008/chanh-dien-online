@@ -254,7 +254,7 @@ function drawScene(dt, t){
   if (scenePrev){ sceneK = Math.min(1, sceneK + dt/SCENE_FADE); if (sceneK >= 1) scenePrev = null; }
   const k = scenePrev ? sceneK*sceneK*(3-2*sceneK) : 1;
   for (const [s, a] of scenePrev ? [[scenePrev, 1], [scene, k]] : [[scene, 1]]){
-    const bg = sceneBackdrop(s, A);
+    const bg = sceneBackdrop(s, A) || (A.hall?.naturalWidth ? A.hall : null);   // missing statue or uploaded photo: the hall photo, never a black screen
     if (bg){ ctx.save(); ctx.globalAlpha = a; ctx.drawImage(bg, 0, 0, 1080, 1920); ctx.restore(); }
     sceneBack(ctx, s, t, dt, a);
   }

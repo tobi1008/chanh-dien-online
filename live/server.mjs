@@ -26,7 +26,7 @@ const UPDATE_REPO = process.env.UPDATE_REPO || 'tobi1008/chanh-dien-online';    
 /* ------------------------------------------------------------------ state */
 // action: what commenting a row's *starred* words does (see findAction). '' = the row is only shown.
 const DEFAULT_GUIDE = [ { icon:'💬', text:'Bình luận để vào', action:'' }, { icon:'🙏', text:'*Dâng hương*', action:'incense' },
-  { icon:'🪷', text:'*Dâng hoa*', action:'flower' }, { icon:'🔮', text:'*Quẻ tử vi*', action:'xam' }, { icon:'🙇', text:'*Lạy* · *Vái*', action:'bow' } ];
+  { icon:'🌸', text:'*Dâng hoa*', action:'flower' }, { icon:'🔮', text:'*Quẻ tử vi*', action:'xam' }, { icon:'🙇', text:'*Lạy* · *Vái*', action:'bow' } ];
 const settings = {
   title: 'Chánh Điện Tịnh Tâm',
   subtitle: 'Nam Mô A Di Đà Phật',
@@ -144,7 +144,7 @@ function cooled(id){
   lastAct.set(id, now); if (lastAct.size > 5000) lastAct.clear();
   return true;
 }
-const ACT_LOG = { incense: ['🙏', 'lên dâng hương'], flower: ['🪷', 'lên dâng hoa'], bow: ['🙇', 'lên vái lạy'] };
+const ACT_LOG = { incense: ['🙏', 'lên dâng hương'], flower: ['🌸', 'lên dâng hoa'], bow: ['🙇', 'lên vái lạy'] };
 
 // "xin xăm" / "quẻ tử vi" draws a fortune stick (live/xam.mjs), free, but once per viewer for the whole live. Asking again puts a small
 // bubble over that viewer's head only (no banner, no bell: the stream is shared by everyone), once per 30 s each.
@@ -524,7 +524,7 @@ const SETTING_RULES = {
   scene: v => allScenes().includes(v) ? v : 'hall', sceneAuto: Boolean, sceneEveryMin: v => clamp(v, 1, 240),
   sceneOff: v => allScenes().filter(id => Array.isArray(v) && v.includes(id)),
   bgAltar: Boolean,
-  guide: v => { const l = (Array.isArray(v) ? v : []).slice(0, 8).map(r => ({ icon: String(r?.icon || '').slice(0, 8), text: String(r?.text || '').slice(0, 40),
+  guide: v => { const l = (Array.isArray(v) ? v : []).slice(0, 8).map(r => ({ icon: String(r?.icon || '').replace(/\u{1FAB7}/gu, '\u{1F338}').slice(0, 8), text: String(r?.text || '').slice(0, 40),
       action: ACTIONS.includes(r?.action) ? r.action : r?.action === undefined ? guessAction(r?.text) : '' })).filter(r => r.icon || r.text);
     return l.length ? l : DEFAULT_GUIDE; },
   track: v => String(v).slice(0, 200), musicAuto: Boolean,

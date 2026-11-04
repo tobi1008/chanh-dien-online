@@ -176,7 +176,7 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
   <div class="chips" role="status">
     <span class="chip wait" id="srv"><i></i>Server…</span>
     <span class="chip" id="tt"><i></i>TikTok: chưa kết nối</span>
-    <span class="chip" id="cnt" title="Đang ngồi trong chánh điện">🪷 0 người</span>
+    <span class="chip" id="cnt" title="Đang ngồi trong chánh điện">🌸 0 người</span>
     <span class="chip" id="watch" title="Số người đang xem live theo TikTok">👁 —</span>
     <span class="chip" id="ovl" title="Cửa sổ overlay đưa lên live"><i></i>Overlay chưa mở</span>
     <span class="chip" id="up">⏱ 00:00:00</span>
@@ -240,10 +240,10 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
             <h3>Thử một người xem</h3>
             <label>Tên người xem<input id="simName" value="Minh An"></label>
             <label>Bình luận / lời nguyện<input id="simText" value="Nam mô A Di Đà Phật, cầu gia đình bình an"></label>
-            <div class="btns"><button id="btnChat">💬 Gửi bình luận</button><button id="btnEnter">👋 Thử vào xem</button><button id="btnIncense">🙏 Dâng hương</button><button id="btnFlower">🪷 Dâng hoa</button><button id="btnXam">🔮 Quẻ tử vi</button><button id="btnBow">🙇 Lạy</button></div>
+            <div class="btns"><button id="btnChat">💬 Gửi bình luận</button><button id="btnEnter">👋 Thử vào xem</button><button id="btnIncense">🙏 Dâng hương</button><button id="btnFlower">🌸 Dâng hoa</button><button id="btnXam">🔮 Quẻ tử vi</button><button id="btnBow">🙇 Lạy</button></div>
             <div class="gifts">
               <button data-gift="Hoa hồng" data-dia="1"><span>🌹</span>Hoa hồng<small>1 xu</small></button>
-              <button data-gift="Đèn hoa sen" data-dia="30"><span>🪷</span>Hoa sen<small>30 xu</small></button>
+              <button data-gift="Đèn hoa sen" data-dia="30"><span>🌸</span>Hoa sen<small>30 xu</small></button>
               <button data-gift="Chuông vàng" data-dia="199"><span>🔔</span>Chuông<small>199 xu</small></button>
             </div>
             <p class="hint">Bình luận <b>dâng hương</b> (hoặc <b>thắp nhang</b>) thì người đó lên bàn thờ dâng hương, <b>dâng hoa</b> thì dâng hoa sen, <b>quẻ tử vi</b> (hoặc <b>xin xăm</b>) thì lên rút quẻ, <b>lạy</b> / <b>vái</b> thì lên bục vái lạy 3 lần. Từ khóa thêm trong <i>Cảnh &amp; quà → Menu hướng dẫn</i> cũng dùng được. Chỉ người đang ở bàn thờ mới hiện tên.</p>
@@ -459,9 +459,9 @@ $('btnUpBg').onclick=()=>$('upBg').click();
 $('upBg').onchange=e=>{ upload('bg', e.target.files, $('upBgInfo'), name=>{ curScene='bg:'+name; drawScenes(); saveScenes(); }); e.target.value=''; };
 
 /* guide menu shown on the overlay */
-const DEFAULT_GUIDE=[{icon:'💬',text:'Bình luận để vào',action:''},{icon:'🙏',text:'*Dâng hương*',action:'incense'},{icon:'🪷',text:'*Dâng hoa*',action:'flower'},
+const DEFAULT_GUIDE=[{icon:'💬',text:'Bình luận để vào',action:''},{icon:'🙏',text:'*Dâng hương*',action:'incense'},{icon:'🌸',text:'*Dâng hoa*',action:'flower'},
   {icon:'🔮',text:'*Quẻ tử vi*',action:'xam'},{icon:'🙇',text:'*Lạy* · *Vái*',action:'bow'}];
-const GUIDE_ACTIONS=[['','Chỉ hiển thị'],['incense','🙏 Dâng hương'],['flower','🪷 Dâng hoa'],['xam','🔮 Rút quẻ'],['bow','🙇 Lên bục vái lạy']];
+const GUIDE_ACTIONS=[['','Chỉ hiển thị'],['incense','🙏 Dâng hương'],['flower','🌸 Dâng hoa'],['xam','🔮 Rút quẻ'],['bow','🙇 Lên bục vái lạy']];
 const kwOf=t=>String(t).split('*').filter((_,i)=>i%2).map(w=>w.toLowerCase().normalize('NFC').replace(/[^\p{L}\p{N}]+/gu,' ').trim()).filter(Boolean);
 // rows that won't do what they say: an action without *keyword*, or the same keyword on two rows
 function checkGuide(){
@@ -579,7 +579,7 @@ function drawPeople(){
     r.append(rk,nm,co,b); box.append(r);
   });
   if (list.length>300){ const e=document.createElement('div'); e.className='empty'; e.textContent=`… và ${(list.length-300).toLocaleString('vi-VN')} người khác (gõ tên để tìm)`; box.append(e); }
-  $('cnt').textContent = `🪷 ${people.size} người`;
+  $('cnt').textContent = `🌸 ${people.size} người`;
 }
 $('q').oninput = renderPeople;
 
