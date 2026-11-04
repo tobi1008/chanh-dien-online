@@ -241,7 +241,7 @@ function onGift(id, name, giftName, count, diamonds, avatar){
   const own = settings.prayerFromChat && v.lastText && Date.now() - v.lastTextAt < 90_000 && v.lastText.length > 6;
   const prayer = own && !(settings.filterOn && wordFilter.check(v.lastText).bad) ? v.lastText : pickPrayer();
   const tier = coins >= 99 ? 3 : coins >= 10 ? 2 : 1;
-  broadcast({ t:'gift', id, name: v.name, giftName, count, coins, total: v.coins, tier, prayer, merit: topMerit() });
+  broadcast({ t:'gift', id, name: v.name, avatar: v.avatar || '', giftName, count, coins, total: v.coins, tier, prayer, merit: topMerit() });
 }
 
 function pickPrayer(){
