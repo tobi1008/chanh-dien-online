@@ -117,7 +117,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
     <div class="pill">⏱ <span id="timer">00:00:00</span></div>
   </div>
   <div id="guide" class="card ui"></div>
-  <div id="merit" class="card ui"><h3>✦ Công Đức ✦</h3><ol id="meritList"><li class="empty">Chưa có</li></ol></div>
+  <div id="merit" class="card ui"><h3 id="meritTitle">✦ Ghi Danh ✦</h3><ol id="meritList"><li class="empty">Chưa có</li></ol></div>
   <div id="enters" class="ui" aria-live="polite"></div>
   <div id="chant" class="ui"><h4 id="chantHead">✦ TỤNG KINH ĐỊNH KỲ ✦</h4><p id="chantText"></p></div>
   <div id="gift" class="ui"><div class="lbl">✦ HỒI HƯỚNG CÔNG ĐỨC ✦</div><div class="who" id="giftWho"></div><div class="what" id="giftWhat"></div><div class="pray" id="giftPray"></div></div>
@@ -690,6 +690,7 @@ function applySettings(){
   document.getElementById('title').textContent=settings.title||'Chánh Điện Tịnh Tâm'; fitTitle();
   document.getElementById('subtitle').textContent=settings.subtitle||'Nam Mô A Di Đà Phật';
   document.getElementById('plaque').hidden = settings.showPlaque === false;
+  document.getElementById('meritTitle').textContent = '✦ ' + (settings.meritTitle || 'Ghi Danh') + ' ✦';
   SCENE_OPTS.bgAltar = settings.bgAltar !== false; renderGuide();
   duck(false); scheduleMo(); setScene(settings.scene); if (musicEl) musicEl.loop=!settings.musicAuto;
   if ((settings.audioOut||'')!==sinkWant) applySink();

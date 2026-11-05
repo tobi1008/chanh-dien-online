@@ -31,6 +31,7 @@ const settings = {
   title: 'Chánh Điện Tịnh Tâm',
   subtitle: 'Nam Mô A Di Đà Phật',
   showPlaque: true,                  // the name board at the top of the overlay (title + subtitle)
+  meritTitle: 'Ghi Danh',            // heading of the givers' board on the right
   music: true, mo: true, moBpm: 52,
   autoChant: true, chantEveryMin: 3,
   showEnter: true,                   // overlay shows "<avatar> <name> vừa vào" for everyone entering the live
@@ -516,7 +517,7 @@ function onControl(m){
 
 // Only known keys, right types, sane ranges: the panel is local, but nothing from the socket is trusted blindly.
 const SETTING_RULES = {
-  title: v => String(v).slice(0, 40), subtitle: v => String(v).slice(0, 60),
+  title: v => String(v).slice(0, 40), subtitle: v => String(v).slice(0, 60), meritTitle: v => String(v).trim().slice(0, 20) || 'Ghi Danh',
   moBpm: v => clamp(v, 20, 120), chantEveryMin: v => clamp(v, 1, 60),
   music: Boolean, mo: Boolean, showPlaque: Boolean, autoChant: Boolean, showEnter: Boolean, syncViewers: Boolean,
   prayerFromChat: Boolean, filterOn: Boolean, xamOn: Boolean,
