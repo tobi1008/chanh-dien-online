@@ -312,7 +312,7 @@ let chantHide=null;
 function showChant(text, head='✦ TỤNG KINH ĐỊNH KỲ ✦'){ document.getElementById('chantHead').textContent=head; document.getElementById('chantText').textContent=text; const el=document.getElementById('chant'); el.classList.add('show'); clearTimeout(chantHide); chantHide=setTimeout(()=>el.classList.remove('show'), 14000); }
 
 /* ======================= audio ======================= */
-let AC=null, master=null, musicGain=null, sfx=null, settings={ music:true, mo:true, moBpm:52 };
+let AC=null, master=null, musicGain=null, sfx=null, voiceGain=null, settings={ music:true, mo:true, moBpm:52 };
 // The server picks the track (see playTrack in server.mjs); this window plays it and says when it ended.
 let curTrack='', curSeq=-1, playingSeq=-1, playingTrack='', musicEl=null;
 // ?preview=1: silent copy shown inside the control panel
@@ -337,6 +337,7 @@ function startAudio(){
   master = AC.createGain(); master.gain.value=.9; master.connect(AC.destination);
   musicGain = AC.createGain(); musicGain.gain.value=settings.music?.5:0; musicGain.connect(master);
   sfx = AC.createGain(); sfx.gain.value=1; sfx.connect(master);
+  voiceGain = AC.createGain(); voiceGain.gain.value=voiceLevel(); voiceGain.connect(master);   // same graph, so the voice follows setSinkId too
   listOuts().then(applySink);
   playMusic(); scheduleMo(); bell();
 }
@@ -351,7 +352,8 @@ function playMusic(){
   const ended = () => { if (el===musicEl && ws?.readyState===1) ws.send(JSON.stringify({ t:'ended', seq:playingSeq })); };
   el.onended = ended; el.onerror = () => setTimeout(ended, 3000); el.play().catch(()=>{});
 }
-function duck(on){ if(!musicGain) return; const t=AC.currentTime, target = !settings.music ? 0 : on ? .14 : .5; musicGain.gain.cancelScheduledValues(t); musicGain.gain.setValueAtTime(musicGain.gain.value,t); musicGain.gain.linearRampToValueAtTime(target,t+.5); }
+// music drops while the voice speaks (fast), and comes back slowly once it is done
+function duck(on){ if(!musicGain) return; const t=AC.currentTime, target = !settings.music ? 0 : on ? .14 : .5; musicGain.gain.cancelScheduledValues(t); musicGain.gain.setValueAtTime(musicGain.gain.value,t); musicGain.gain.linearRampToValueAtTime(target,t+(on?.4:1.5)); }
 let haloPulse=0;
 function bell(big){
   if(!audioOn) return; const t=AC.currentTime, k=big?1.7:1;
@@ -365,6 +367,51 @@ function mo(){
   o.connect(bp); bp.connect(g); g.connect(sfx); o.start(t); o.stop(t+.16);
 }
 let moTimer=null; function scheduleMo(){ clearInterval(moTimer); if (audioOn && settings.mo) moTimer=setInterval(mo, 60000/Math.max(20,settings.moBpm||52)); }
+/* ======================= voice ======================= */
+// The server writes the lines ({ t:'say', text, prio }, see "voice" in server.mjs); this window reads them one after another
+// through /api/tts, through the same Web Audio graph as the music, so they go out on the chosen sound device.
+// Gifts (prio) jump the queue and are fetched at once so they start without waiting. A line waiting over 60 s is
+// dropped (old news), at most 30 wait. A line that can't start within 8 s is given up for good (download stopped, and
+// silenced if it starts anyway) so two voices never talk over each other; a blocked play() is retried a few times.
+const VOICE_WAIT=60000, VOICE_MAX=30, voiceQ=[], voicePrio=[]; let voicePlaying=false, voiceCur=null;
+const voiceLevel = () => Math.max(0, Math.min(100, settings.voiceVol ?? 85))/100*1.2;
+const voiceUrl = text => `/api/tts?v=${settings.voiceGender==='m'?'m':'f'}&rate=${Math.max(60,Math.min(130,settings.voiceRate||90))/100}&text=${encodeURIComponent(text)}`;
+function say(text, prio){
+  text=String(text||'').trim();
+  if (PREVIEW || !audioOn || settings.voiceOn===false || !text) return;
+  const q = prio ? voicePrio : voiceQ; q.push({ text, at:Date.now() });
+  if (prio) fetch(voiceUrl(text)).catch(()=>{});                 // warm the server's cache while the line waits
+  if (q.length>VOICE_MAX) q.shift();
+  nextVoice();
+}
+function stopVoice(){ voiceQ.length=0; voicePrio.length=0; voiceCur?.(); }
+async function nextVoice(){
+  if (voicePlaying) return;
+  let line; const now=Date.now();
+  while ((line = voicePrio.shift() || voiceQ.shift()) && now-line.at > VOICE_WAIT);
+  if (!line){ duck(false); return; }
+  voicePlaying=true; duck(true);
+  try { await playLine(line.text); } finally { voicePlaying=false; voiceCur=null; nextVoice(); }
+}
+function playLine(text){
+  return new Promise(resolve => {
+    const el=new Audio(); let src=null;
+    try { src=AC.createMediaElementSource(el); src.connect(voiceGain); } catch { el.volume=Math.min(1, voiceLevel()); }
+    let over=false, guard=setTimeout(finish, 8000);
+    function finish(){
+      if (over) return; over=true; clearTimeout(guard); el.pause();
+      if (!el.ended){ el.removeAttribute('src'); el.load(); }       // stop the download: a late line must never start
+      setTimeout(()=>{ try{ src?.disconnect(); }catch{} }, 200); resolve();
+    }
+    voiceCur=finish;
+    el.onplaying=()=>{ if (over){ el.pause(); return; } clearTimeout(guard);
+      guard=setTimeout(finish, isFinite(el.duration) ? el.duration*1000+4000 : 40000); };
+    el.onended=finish; el.onerror=finish;
+    el.src=voiceUrl(text);
+    const tryPlay=left=>{ if (over) return; el.play().catch(()=> left>0 && !over ? setTimeout(()=>tryPlay(left-1),1500) : finish()); };
+    tryPlay(4);
+  });
+}
 /* ======================= "vừa vào" greetings ======================= */
 // One greeting at a time under the counters (2.4 s each); a busy room keeps only the 6 newest waiting.
 const enterQ=[]; let enterTimer=null;
@@ -466,6 +513,7 @@ function showXam(m){
   document.getElementById('xamWho').textContent=m.name;
   document.getElementById('xamPoem').replaceChildren(...(m.poem||[]).map(l=>{ const d=document.createElement('div'); d.textContent=l; return d; }));
   document.getElementById('xamMeaning').textContent=m.meaning||'';
+  if (m.say && !m.said){ m.said=true; say(m.say); }
   const el=document.getElementById('xam'); el.classList.add('show'); clearTimeout(xamHide); xamHide=setTimeout(()=>el.classList.remove('show'), 15000);
 }
 /* ======================= glow, rays, sparkles ======================= */
@@ -683,6 +731,7 @@ function connect(){
       case 'notice': showChant(m.text, '✦ THÔNG BÁO ✦'); bell(); break;
       case 'bell': bell(true); break;
       case 'mo1': mo(); break;
+      case 'say': say(m.text, m.prio); break;
     }
   };
 }
@@ -692,7 +741,9 @@ function applySettings(){
   document.getElementById('plaque').hidden = settings.showPlaque === false;
   document.getElementById('meritTitle').textContent = '✦ ' + (settings.meritTitle || 'Ghi Danh') + ' ✦';
   SCENE_OPTS.bgAltar = settings.bgAltar !== false; renderGuide();
-  duck(false); scheduleMo(); setScene(settings.scene); if (musicEl) musicEl.loop=!settings.musicAuto;
+  duck(voicePlaying); scheduleMo();
+  if (voiceGain) voiceGain.gain.setTargetAtTime(voiceLevel(), AC.currentTime, .1);
+  if (settings.voiceOn===false) stopVoice(); setScene(settings.scene); if (musicEl) musicEl.loop=!settings.musicAuto;
   if ((settings.audioOut||'')!==sinkWant) applySink();
 }
 // Sound device (settings.audioOut, e.g. "CABLE Input" of VB-Cable): LIVE Studio then records only this window from the

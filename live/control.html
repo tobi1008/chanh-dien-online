@@ -85,6 +85,8 @@ label{display:grid;gap:5px;font-size:12px;color:var(--muted)}
 input,select,textarea{width:100%;min-width:0;padding:9px 11px;background:var(--bg2);border:1px solid var(--line2);border-radius:10px;color:var(--fg)}
 input:hover,select:hover,textarea:hover{border-color:#6e4a2a}
 textarea{resize:vertical;min-height:72px}
+input[type=range]{padding:6px 0;background:none;border:0;accent-color:var(--gold)}
+label output{color:var(--fg);font-weight:600}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:end}.row>*{flex:1 1 0;min-width:0}
 .row>button{flex:0 0 auto}
 .hint{margin:0;color:var(--muted);font-size:12.5px}
@@ -240,7 +242,7 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
             <h3>Thử một người xem</h3>
             <label>Tên người xem<input id="simName" value="Minh An"></label>
             <label>Bình luận / lời nguyện<input id="simText" value="Nam mô A Di Đà Phật, cầu gia đình bình an"></label>
-            <div class="btns"><button id="btnChat">💬 Gửi bình luận</button><button id="btnEnter">👋 Thử vào xem</button><button id="btnIncense">🙏 Dâng hương</button><button id="btnFlower">🌸 Dâng hoa</button><button id="btnXam">🔮 Quẻ tử vi</button><button id="btnBow">🙇 Lạy</button></div>
+            <div class="btns"><button id="btnChat">💬 Gửi bình luận</button><button id="btnEnter">👋 Thử vào xem</button><button id="btnIncense">🙏 Dâng hương</button><button id="btnFlower">🌸 Dâng hoa</button><button id="btnXam">🔮 Quẻ tử vi</button><button id="btnBow">🙇 Lạy</button><button id="btnFollow">➕ Theo dõi</button><button id="btnLike">❤️ Thả tim</button></div>
             <div class="gifts">
               <button data-gift="Hoa hồng" data-dia="1"><span>🌹</span>Hoa hồng<small>1 xu</small></button>
               <button data-gift="Đèn hoa sen" data-dia="30"><span>🌸</span>Hoa sen<small>30 xu</small></button>
@@ -274,7 +276,7 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
             <h3>Thông báo trên màn hình</h3>
             <label>Nội dung<textarea id="sayText" maxlength="300">Nguyện cầu cho tất cả chư vị Phật tử thân tâm thường an lạc, vạn sự cát tường.</textarea></label>
             <div class="btns"><button class="primary" id="btnSay">📜 Hiện lên live</button><button id="btnChant">📿 Hiện đoạn kinh ngay</button></div>
-            <p class="hint">Hiện thành banner trên overlay kèm một tiếng chuông, không có giọng đọc.</p>
+            <p class="hint">Hiện thành banner trên overlay kèm một tiếng chuông. Nếu bật <b>Giọng đọc</b> và mục <b>Đọc kinh, thông báo</b> thì đọc thành tiếng luôn.</p>
           </div>
           <div class="group">
             <h3>Nhạc · chuông · mõ</h3>
@@ -288,6 +290,31 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
             <label>Phát âm thanh overlay ra<select id="audioOut"><option value="">Loa mặc định của máy</option></select></label>
             <p class="hint" id="audioOutInfo">Chọn <b>CABLE Input</b> (VB-Cable) để TikTok LIVE Studio chỉ thu tiếng chánh điện: trong LIVE Studio tắt âm thanh máy tính, thêm mic <b>CABLE Output</b>. Xem video khác sẽ không lọt vào live.</p>
             <div class="btns"><button id="btnBell">🔔 Thỉnh chuông</button><button id="btnMo">🪵 Gõ mõ</button></div>
+          </div>
+        </div>
+        <div class="cols">
+          <div class="group">
+            <h3>Giọng đọc</h3>
+            <label class="sw"><span>Bật giọng đọc<small>Đọc lời cảm ơn, lời chào, kinh… để live có tiếng người, không chỉ hình tĩnh và nhạc</small></span><input type="checkbox" id="voiceOn" checked></label>
+            <div class="row">
+              <label>Giọng<select id="voiceGender"><option value="f">Nữ (Hoài My)</option><option value="m">Nam (Nam Minh)</option></select></label>
+              <label>Nhắc khi im sau (phút)<input id="voiceIdleMin" type="number" min="1" max="15" value="2"></label>
+            </div>
+            <label>Tốc độ đọc: <output id="voiceRateOut">90%</output><input id="voiceRate" type="range" min="60" max="130" step="5" value="90"></label>
+            <label>Âm lượng giọng: <output id="voiceVolOut">85%</output><input id="voiceVol" type="range" min="0" max="100" step="5" value="85"></label>
+            <label>Gõ chữ cho giọng đọc ngay<textarea id="speakText" maxlength="300">Nam mô A Di Đà Phật. Cảm ơn quý vị đã vào chánh điện. Mời quý vị bình luận một câu để cùng ngồi tịnh tâm.</textarea></label>
+            <div class="btns"><button class="primary" id="btnSpeak">🔊 Đọc ngay</button></div>
+            <p class="hint">Chỉ đọc, không hiện banner. Giọng đọc phát ra cùng thiết bị với nhạc (mục <b>Phát âm thanh overlay ra</b>), nhạc tự nhỏ lại khi đang đọc. Cần Internet: giọng đọc của Microsoft Edge, lỗi thì tạm dùng giọng Google.</p>
+          </div>
+          <div class="group">
+            <h3>Đọc những gì</h3>
+            <label class="sw"><span>Cảm ơn quà, hồi hướng công đức<small>Đọc tên người tặng, quà lớn đọc trang trọng hơn. Quà tặng liền nhau của một người được gộp lại</small></span><input type="checkbox" id="voiceGift" checked></label>
+            <label class="sw"><span>Chào người mới vào<small>Tối đa 1 câu mỗi 20 giây, đông người thì gộp “Chào X và N bạn”</small></span><input type="checkbox" id="voiceJoin" checked></label>
+            <label class="sw"><span>Đọc kinh, thông báo<small>Đoạn kinh định kỳ và thông báo gửi từ đây</small></span><input type="checkbox" id="voiceChant" checked></label>
+            <label class="sw"><span>Đọc quẻ xin xăm<small>Số quẻ, mức quẻ và lời giải</small></span><input type="checkbox" id="voiceXam" checked></label>
+            <label class="sw"><span>Cảm ơn thả tim, theo dõi<small>Thỉnh thoảng thôi, không đọc mỗi lần thả tim</small></span><input type="checkbox" id="voiceLike" checked></label>
+            <label class="sw"><span>Nhắc nhẹ khi im lặng<small>Lâu không có gì để đọc thì đọc một lời dạy ngắn, mời bình luận để vào ngồi</small></span><input type="checkbox" id="voiceIdle" checked></label>
+            <p class="hint">Không bao giờ đọc nguyên văn bình luận của người xem, chỉ đọc tên (đã bỏ emoji, ký tự lạ, tên có từ cấm đọc là “bạn”).</p>
           </div>
         </div>
       </div>
@@ -400,7 +427,8 @@ try{ const t=$('tab-'+location.hash.slice(1)) || $(localStorage.getItem('cd.tab'
 
 /* settings */
 const SETTING_IDS = ['music','mo','autoChant','moBpm','chantEveryMin','title','subtitle','meritTitle','showPlaque','showEnter','syncViewers',
-  'prayerFromChat','filterOn','filterMode','filterStrikes','filterExtra','audioOut','xamOn','sceneAuto','sceneEveryMin','musicAuto','bgAltar'];
+  'prayerFromChat','filterOn','filterMode','filterStrikes','filterExtra','audioOut','xamOn','sceneAuto','sceneEveryMin','musicAuto','bgAltar',
+  'voiceOn','voiceGender','voiceRate','voiceVol','voiceGift','voiceJoin','voiceChant','voiceXam','voiceLike','voiceIdle','voiceIdleMin'];
 // sound devices come from the overlay window; the saved one stays in the list even when the overlay doesn't see it,
 // otherwise the next settings save would quietly reset it to the default speakers
 let outNames=[], savedOut=''; const OUT_HINT=$('audioOutInfo').innerHTML;
@@ -411,9 +439,11 @@ function drawOuts(){
   sel.value=savedOut;
 }
 function fillSettings(s){ if (s.audioOut!==undefined){ savedOut=s.audioOut; drawOuts(); } if (s.scene) curScene=s.scene; if (s.sceneOff) sceneOff=s.sceneOff; if (s.outfits) outfits=s.outfits; if (s.musicOff) musicOff=s.musicOff; if (tracks.includes(s.track)) curTrack=s.track; if (s.guide && !$('guideRows').contains(document.activeElement)){ guide=s.guide; drawGuide(); }
-  if ('bgAltar' in s && SCENE_OPTS.bgAltar!==(s.bgAltar!==false)){ SCENE_OPTS.bgAltar=s.bgAltar!==false; sceneCards.filter(c=>c.id.startsWith('bg:')).forEach(drawThumb); } for (const k of SETTING_IDS){ const el=$(k); if (!el || s[k]===undefined || el===document.activeElement) continue; if (el.type==='checkbox') el.checked=!!s[k]; else el.value=s[k]; } $('brandTitle').textContent=s.title||'Chánh Điện Tịnh Tâm'; drawScenes(); drawOutfits(); drawTracks(); }
-function readSettings(){ const o={}; for (const k of SETTING_IDS){ const el=$(k); o[k] = el.type==='checkbox' ? el.checked : el.type==='number' ? +el.value : el.value; } o.scene=curScene; o.sceneOff=sceneOff; o.outfits=OUTFIT_ORDER.filter(id=>outfits.includes(id)); o.musicOff=musicOff; o.guide=guide; return o; }
+  if ('bgAltar' in s && SCENE_OPTS.bgAltar!==(s.bgAltar!==false)){ SCENE_OPTS.bgAltar=s.bgAltar!==false; sceneCards.filter(c=>c.id.startsWith('bg:')).forEach(drawThumb); } for (const k of SETTING_IDS){ const el=$(k); if (!el || s[k]===undefined || el===document.activeElement) continue; if (el.type==='checkbox') el.checked=!!s[k]; else el.value=s[k]; } $('brandTitle').textContent=s.title||'Chánh Điện Tịnh Tâm'; drawVoice(); drawScenes(); drawOutfits(); drawTracks(); }
+function readSettings(){ const o={}; for (const k of SETTING_IDS){ const el=$(k); o[k] = el.type==='checkbox' ? el.checked : el.type==='number' || el.type==='range' ? +el.value : el.value; } o.scene=curScene; o.sceneOff=sceneOff; o.outfits=OUTFIT_ORDER.filter(id=>outfits.includes(id)); o.musicOff=musicOff; o.guide=guide; return o; }
 for (const k of SETTING_IDS) $(k).addEventListener('change', () => { if (send('settings', { settings: readSettings() })) toast('Đã lưu cài đặt'); });
+function drawVoice(){ $('voiceRateOut').textContent=$('voiceRate').value+'%'; $('voiceVolOut').textContent=$('voiceVol').value+'%'; }
+$('voiceRate').addEventListener('input', drawVoice); $('voiceVol').addEventListener('input', drawVoice);
 
 /* music */
 let tracks=[], curTrack='', musicOff=[];
@@ -687,6 +717,9 @@ $('btnCheckUpd').onclick = () => { if (send('checkUpdate')) $('updOut').textCont
 $('btnInstall').onclick = () => { if (confirm('Cài bản mới bây giờ? Chánh điện sẽ khởi động lại vài giây (công đức và cài đặt được giữ nguyên). Nên làm khi KHÔNG đang live.')) send('installUpdate'); };
 $('btnSay').onclick = () => { if (send('notice', { text: $('sayText').value })) toast('Đã hiện thông báo'); };
 $('btnChant').onclick = () => send('chant');
+$('btnSpeak').onclick = () => { if (!$('voiceOn').checked) return toast('Giọng đọc đang tắt'); if ($('speakText').value.trim() && send('speak', { text: $('speakText').value })) toast('Đang đọc'); };
+$('btnFollow').onclick = () => send('follow', { name: $('simName').value });
+$('btnLike').onclick = () => send('like', { name: $('simName').value });
 $('btnBell').onclick = () => send('bell');
 $('btnMo').onclick = () => send('mo');
 $('btnLogClear').onclick = () => logEl.replaceChildren();

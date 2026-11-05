@@ -31,11 +31,17 @@ Không cần cài gì thêm. Node.js đã có sẵn trong thư mục "node".
 
   4) Mở TikTok LIVE Studio:
        Add source → Window capture → chọn cửa sổ "Overlay 9:16 · Chánh Điện Tịnh Tâm".
-     Để có nhạc, chuông, mõ trên live: bật thu âm thanh máy tính (Desktop / System audio) trong LIVE Studio.
+     Để có nhạc, chuông, mõ và giọng đọc trên live: bật thu âm thanh máy tính (Desktop / System audio) trong LIVE Studio.
      (Nếu dùng OBS: thêm Browser source, URL http://localhost:3000/live/overlay.html, kích thước 1080 × 1920.)
 
   5) Bấm Go LIVE trên TikTok. Sau đó quay lại bảng điều khiển, tab "Kết nối":
      nhập @username kênh của bạn → bấm "Kết nối". Thấy chữ "TikTok @..." màu xanh là xong.
+
+  GIỌNG ĐỌC: bảng điều khiển → tab "Âm thanh & kinh" → khung "Giọng đọc".
+     Chánh điện tự đọc lời cảm ơn quà, chào người mới vào, đọc kinh, đọc quẻ, và nhắc nhẹ khi lâu không có gì
+     (để live không bị coi là chỉ có hình tĩnh và nhạc). Chọn giọng nữ / nam, tốc độ, âm lượng, bật tắt từng loại.
+     Ô "Gõ chữ cho giọng đọc ngay" → bấm "Đọc ngay" để tự nói một câu. Giọng đọc cần Internet.
+     Không nghe giọng đọc: kiểm tra ô "Overlay" đã "có tiếng" chưa và công tắc "Bật giọng đọc".
 
   TÁCH TIẾNG: muốn xem video khác mà không lọt tiếng vào live
      • Cài VB-Cable miễn phí (https://vb-audio.com/Cable/), khởi động lại máy.

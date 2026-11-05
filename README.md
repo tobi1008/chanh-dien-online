@@ -1,6 +1,6 @@
 # Chánh Điện Tịnh Tâm
 
-Chánh điện online 2.5D cho TikTok LIVE. Mỗi người xem bình luận là bước vào chánh điện, ngồi xuống bồ đoàn tụng kinh. Ai tặng quà sẽ được ghi tên hồi hướng trên màn hình. Có nhạc thiền, chuông, mõ và kinh hiện định kỳ.
+Chánh điện online 2.5D cho TikTok LIVE. Mỗi người xem bình luận là bước vào chánh điện, ngồi xuống bồ đoàn tụng kinh. Ai tặng quà sẽ được ghi tên hồi hướng trên màn hình. Có nhạc thiền, chuông, mõ, kinh hiện định kỳ và giọng đọc tiếng Việt (cảm ơn quà, chào người vào, đọc kinh, nhắc nhẹ khi im lặng).
 
 Mã nguồn chia sẻ miễn phí (MIT). Có hai phần:
 
@@ -24,7 +24,7 @@ npm start
 3. Trong TikTok LIVE Studio: *Add source → Window capture* → chọn cửa sổ overlay. Với OBS thì dùng *Browser source* trỏ tới `http://localhost:3000/live/overlay.html`, kích thước 1080×1920.
 4. Bật LIVE trên TikTok, nhập `@username` vào bảng điều khiển, bấm **Kết nối**.
 
-Chưa live vẫn kiểm tra được trong tab **Kiểm tra**: thử một người vào xem, bình luận, tặng quà. Bấm **Làm trống toàn bộ bồ đoàn** trước khi lên sóng.
+Chưa live vẫn kiểm tra được trong tab **Kiểm tra**: thử một người vào xem, bình luận, tặng quà, theo dõi, thả tim. Bấm **Làm trống toàn bộ bồ đoàn** trước khi lên sóng.
 
 ### Đóng gói cho máy Windows (không cần cài Node)
 
@@ -55,6 +55,16 @@ Sửa `index.html` (bản web) hay `README.md` thì không tạo Release, vì zi
 - **Menu hướng dẫn**: sửa ngay trong tab **🏯 Cảnh & quà** → *Menu hướng dẫn trên màn hình* (tối đa 8 dòng). Chữ trong `*dấu sao*` được tô vàng và là từ khóa thật: mỗi dòng chọn một hành động (dâng hương, dâng hoa, rút quẻ, lên bục vái lạy hoặc chỉ hiển thị), người xem gõ đúng từ đó là chạy. Các từ khóa có sẵn (dâng hương, thắp nhang, dâng hoa, quẻ tử vi, xin xăm, lạy, vái…) luôn dùng được.
 - **Lạy / Vái**: người đó đi lên bục trước bàn thờ, cúi người vái 3 lần rồi về chỗ (chung hàng chờ và giới hạn 45 giây với dâng hương). Câu bình luận vẫn được giữ làm lời nguyện khi tặng quà.
 - **Nhạc nền**: mọi file `.mp3`, `.m4a`, `.ogg`, `.wav` trong `assets/music` hiện thành danh sách trong tab **🔔 Âm thanh & kinh**, chép thêm bài vào (hoặc bấm **Tải nhạc lên**, tối đa 60 MB mỗi bài) là danh sách tự cập nhật, bấm 🗑 để xóa bài. Bấm tên bài để phát ngay. Bật *Tự động chuyển bài* thì hết bài sẽ phát ngẫu nhiên bài khác có đánh dấu *tự chuyển* (mỗi vòng mỗi bài một lần, không lặp liền); tắt thì lặp lại bài đang phát. Mỗi lần mở server bắt đầu bằng một bài ngẫu nhiên, từ đoạn giữa bài. Chỉ dùng nhạc bạn có quyền (tự tạo hoặc miễn phí bản quyền), nhạc có bản quyền có thể bị TikTok tắt tiếng hoặc cảnh báo.
+- **Giọng đọc**: tab **🔔 Âm thanh & kinh** → *Giọng đọc*. Giọng nữ (Hoài My) hoặc nam (Nam Minh) của Microsoft Edge, mặc định đọc hơi chậm (90%), chỉnh được tốc độ và âm lượng; nhạc nền tự nhỏ lại khi đang đọc. Giọng phát ra cùng thiết bị với nhạc (*Phát âm thanh overlay ra*). Bật/tắt riêng từng loại:
+  - *Cảm ơn quà*: đọc tên người tặng và lời hồi hướng công đức, quà lớn (từ 99 xu) đọc trang trọng hơn, được đọc trước các câu khác. Một người tặng liền nhiều lần thì gộp lại thành một câu (tối đa 1 câu mỗi 25 giây cho mỗi người).
+  - *Chào người mới vào*: tối đa 1 câu mỗi 20 giây, đông người thì gộp "Chào X và N bạn vừa vào chánh điện".
+  - *Đọc kinh, thông báo*: đoạn kinh định kỳ và thông báo gửi từ bảng điều khiển.
+  - *Đọc quẻ*: số quẻ, mức quẻ và lời giải, đọc lúc thẻ quẻ hiện lên.
+  - *Cảm ơn thả tim, theo dõi*: thỉnh thoảng thôi (tim: sau mỗi 30 tim và cách nhau ít nhất 90 giây).
+  - *Nhắc nhẹ khi im lặng*: lâu không có gì để đọc (mặc định 2 phút) thì đọc một lời dạy ngắn hoặc lời mời bình luận để vào ngồi, để live không bị coi là chỉ có hình tĩnh và nhạc.
+  - Ô *Gõ chữ cho giọng đọc ngay* để tự nói một câu bất kỳ.
+
+  Mỗi loại có nhiều mẫu câu, chọn ngẫu nhiên và không lặp lại câu vừa đọc (sửa trong `live/server.mjs`, mục `VOICE`). Không bao giờ đọc nguyên văn bình luận của người xem, chỉ đọc tên (bỏ emoji, ký tự lạ, số dài; tên có từ cấm đọc là "bạn"). Cần Internet; dịch vụ Edge lỗi thì tạm đọc bằng giọng Google.
 - **Kiểu áo người xem**: áo lam xám, lam xanh, nâu, trắng, tràng vàng, hồng phấn. Chọn một hay nhiều kiểu; chọn nhiều thì mỗi người xem mặc một kiểu trong số đó. Bà cụ và các sư giữ nguyên áo.
 
 ### Bộ lọc từ tục tĩu
@@ -77,12 +87,14 @@ Dự án được viết để ai tải về chạy cũng an toàn mặc định
 - **Chặn trang web lạ điều khiển.** WebSocket chỉ nhận kết nối từ chính trang của server (kiểm tra `Origin`), và header `Host` phải là localhost (chống DNS rebinding). Một trang web khác đang mở trong cùng trình duyệt không gửi được lệnh. Cửa sổ overlay chỉ nhận dữ liệu, không gửi lệnh được.
 - **File tĩnh có danh sách trắng.** Chỉ phục vụ `/assets` và `/live`. Chặn file ẩn (`.git`, `.env`), `node_modules`, mã server, `package.json` và mọi đường dẫn `../`.
 - **Không tin dữ liệu vào.** Tên người xem, bình luận và tên quà đều bị cắt độ dài. Cài đặt chỉ nhận đúng khóa, đúng kiểu, trong giới hạn. Mọi chữ trên màn hình vẽ bằng `textContent` hoặc canvas, không chèn HTML, nên bình luận chứa mã độc chỉ hiện ra như chữ thường.
-- **Phụ thuộc ghim phiên bản** trong `live/package.json`: `ws`, `tiktok-live-connector`. Không có khóa API nào trong mã.
+- **Phụ thuộc ghim phiên bản** trong `live/package.json`: `ws`, `tiktok-live-connector`, `msedge-tts`. Không có khóa API nào trong mã.
+- **Giọng đọc** (`/api/tts`) chỉ nhận chữ cần đọc và một trong hai giọng có sẵn, không nhận tên giọng tùy ý, và từ chối yêu cầu do trang web khác gửi tới. Câu cần đọc (gồm tên người xem) được gửi tới dịch vụ đọc của Microsoft Edge, lỗi thì tới Google Dịch.
 
 Các lớp trên đã được thử: đường dẫn `../`, `%2e%2e`, `.git/config`, `server.mjs`, `package.json` đều trả 404. Host giả trả 421. WebSocket từ Origin lạ bị từ chối. Lệnh gửi từ overlay bị bỏ qua. Cài đặt sai kiểu bị kẹp về giới hạn.
 
 ### Lưu ý
 
+- Giọng đọc dùng dịch vụ đọc miễn phí của Microsoft Edge qua thư viện cộng đồng `msedge-tts` (và Google Dịch khi Edge lỗi), không phải API chính thức, có thể ngừng chạy bất cứ lúc nào. Khi đó live vẫn chạy bình thường, chỉ mất tiếng đọc.
 - `tiktok-live-connector` là thư viện cộng đồng, không phải API chính thức của TikTok. Nó có thể ngừng chạy khi TikTok đổi hệ thống. Kiểm tra điều khoản TikTok trước khi dùng cho kênh của bạn.
 - Hình ảnh trong `assets/` được tạo bằng Google Flow, nhạc nền `music1`, `music2` tạo bằng Gemini; 6 bài còn lại trong `assets/music` tổng hợp hoàn toàn bằng code (`pack/make-music.py`, không dùng mẫu âm thanh nào), tự do sử dụng. Kiểm tra điều khoản của các dịch vụ đó trước khi dùng thương mại, hoặc thay bằng tài nguyên của bạn.
 

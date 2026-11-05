@@ -1,7 +1,8 @@
 // Chánh Điện Tịnh Tâm — live server
 // Runs on the streaming PC. Serves the overlay + control panel, listens to a TikTok LIVE room,
 // keeps the list of seated viewers and pushes everything to the overlay over WebSocket.
-// No voice: gifts, chants and notices are shown as banners on screen.
+// Voice: the server writes what the hall says (thanks for gifts, greetings, chants, quiet-time reminders) and the overlay
+// reads it aloud through /api/tts (Microsoft Edge neural voices, Google as a fallback). Viewers' comments are never read.
 //
 //   cd live && npm install && node server.mjs        → http://localhost:3000/live/control.html
 //
@@ -52,6 +53,13 @@ const settings = {
   musicOff: [],                      // tracks the auto switch skips (so files added later are in the rotation by default)
   bgAltar: true,                     // uploaded backgrounds get the altar + statue painted on top (offerings need somewhere to go)
   guide: DEFAULT_GUIDE,              // the "how to join" card on the overlay; *word* is drawn in gold
+  // voice (see "voice" below): a calm temple voice, a little slower than normal, pitch untouched
+  voiceOn: true,
+  voiceGender: 'f',                  // f: vi-VN-HoaiMyNeural · m: vi-VN-NamMinhNeural
+  voiceRate: 90,                     // % of normal speed
+  voiceVol: 85,                      // % (the music is ducked while the voice speaks)
+  voiceGift: true, voiceJoin: true, voiceChant: true, voiceXam: true, voiceLike: true,
+  voiceIdle: true, voiceIdleMin: 2,  // after this many quiet minutes, a gentle reminder / short teaching
 };
 const SCENE_NAMES = { hall:'Chánh điện', bamboo:'Rừng trúc', lotus:'Hồ sen đêm trăng', peak:'Đỉnh núi bình minh',
   bodhi:'Cội Bồ Đề hoàng hôn', snow:'Sân chùa tuyết', fall:'Thác nước', spring:'Mai vàng ngày xuân' }, SCENE_IDS = Object.keys(SCENE_NAMES);
@@ -153,7 +161,10 @@ const ACT_LOG = { incense: ['🙏', 'lên dâng hương'], flower: ['🌸', 'lê
 const xamDrawn = new Set(), xamAsked = new Map();
 function sendXam(v){
   const no = Math.floor(Math.random() * XAM.length), x = XAM[no];
-  broadcast({ t:'xam', id: v.id, name: v.name, no: no + 1, level: x.level, poem: x.poem, meaning: x.meaning });
+  // the overlay reads `say` when the card shows up (after the walk to the altar), not when the message arrives
+  const said = settings.voiceOn && settings.voiceXam ? fill(pick(VOICE.xam), { n: speakName(v.name), no: no + 1, level: x.level, meaning: x.meaning }) : '';
+  if (said) lastSayAt = Date.now();
+  broadcast({ t:'xam', id: v.id, name: v.name, no: no + 1, level: x.level, poem: x.poem, meaning: x.meaning, say: said });
   addLog(`🎋 ${v.name} xin được xăm số ${no + 1} (${x.level})`);
 }
 function onXamAsk(v){
@@ -179,6 +190,7 @@ function seat(id, name, opts = {}){
         avatar: opts.avatar || '', coins: merit.get(id)?.coins || 0, joinedAt: Date.now(), lastAt: Date.now() };
   viewers.set(id, v);
   broadcast({ t:'join', v: pub(v), cap: capacity() });
+  voiceJoin(v.name);
   return { v, isNew:true };
 }
 
@@ -244,6 +256,7 @@ function onGift(id, name, giftName, count, diamonds, avatar){
   const prayer = own && !(settings.filterOn && wordFilter.check(v.lastText).bad) ? v.lastText : pickPrayer();
   const tier = coins >= 99 ? 3 : coins >= 10 ? 2 : 1;
   broadcast({ t:'gift', id, name: v.name, avatar: v.avatar || '', giftName, count, coins, total: v.coins, tier, prayer, merit: topMerit() });
+  voiceGift(id, v.name, coins);
 }
 
 function pickPrayer(){
@@ -258,8 +271,169 @@ const CHANTS = [
   'Quán Tự Tại Bồ Tát hành thâm Bát Nhã Ba La Mật Đa thời, chiếu kiến ngũ uẩn giai không, độ nhất thiết khổ ách.',
 ];
 let chantIdx = 0, chantTimer = null;
-function chant(){ const text = CHANTS[chantIdx++ % CHANTS.length]; broadcast({ t:'chant', text }); }
+function chant(){ const text = CHANTS[chantIdx++ % CHANTS.length]; broadcast({ t:'chant', text }); if (settings.voiceChant) say(text); }
 function scheduleChant(){ clearInterval(chantTimer); if (settings.autoChant) chantTimer = setInterval(chant, Math.max(1, settings.chantEveryMin) * 60_000); }
+
+/* ---------------------------------------------------------------- voice */
+// What the hall says aloud, so the live is never only a still picture with music. The server writes the lines (one
+// place for the wording, the rate limits and the toggles) and broadcasts { t:'say', text, prio }; every overlay window
+// with sound reads them through /api/tts in its own queue (gifts jump to the front). Calm temple wording, short, many
+// variants picked at random and never the same one twice in a row. Viewers' comments are never read aloud: only
+// their names, cleaned up by speakName.
+const VOICE = {
+  gift1: [
+    'Cảm ơn {n} đã thành tâm dâng lễ. Nguyện công đức này hồi hướng cho gia đình {n} được bình an.',
+    'Nam mô A Di Đà Phật. Cảm ơn {n} đã gieo duyên lành. Nguyện {n} thân tâm an lạc.',
+    'Chánh điện xin tri ân {n}. Nguyện công đức hồi hướng khắp pháp giới chúng sinh.',
+    'Tùy hỷ công đức của {n}. Nguyện {n} và gia quyến luôn được bình an, mạnh khỏe.',
+    'Cảm ơn tấm lòng của {n}. Nguyện mọi điều cát tường đến với {n}.',
+    'Một chút lòng thành của {n} đã được dâng lên. Nguyện {n} phiền não nhẹ vơi, tâm luôn thanh tịnh.',
+  ],
+  gift2: [
+    'Nam mô A Di Đà Phật. Chánh điện xin tri ân {n} đã thành tâm cúng dường. Nguyện công đức này hồi hướng cho cửu huyền thất tổ và gia đạo của {n} được an vui.',
+    'Tùy hỷ công đức lành của {n}. Nguyện Tam Bảo gia hộ cho {n} thân tâm an lạc, vạn sự hanh thông.',
+    'Cảm niệm tấm lòng của {n}. Nguyện hồi hướng công đức cho cha mẹ, ông bà và người thân của {n} luôn mạnh khỏe, bình an.',
+    'Nam mô Đại Bi Quán Thế Âm Bồ Tát. Cảm ơn {n} đã phát tâm dâng lễ. Nguyện {n} tai qua nạn khỏi, gia đình êm ấm.',
+  ],
+  gift3: [
+    'Nam mô Bổn Sư Thích Ca Mâu Ni Phật. Chánh điện thành kính tri ân {n} đã phát tâm cúng dường. Nguyện đem công đức này hồi hướng cho {n} cùng gia quyến phước huệ song tu, vạn sự cát tường, và cho khắp pháp giới chúng sinh đều được lợi lạc.',
+    'Nam mô A Di Đà Phật. Đại chúng xin tùy hỷ tâm cúng dường rộng lớn của {n}. Nguyện Tam Bảo chứng minh, gia hộ cho {n} và gia đình thân tâm thường an, phước duyên tăng trưởng, mọi sở cầu đều được như ý.',
+    'Thành kính tri ân {n}. Công đức lành hôm nay, nguyện hồi hướng cho cửu huyền thất tổ của {n} được siêu sinh tịnh độ, người hiện tiền được bình an, khỏe mạnh.',
+  ],
+  giftAgain: [                       // the same giver again within a few minutes: shorter, no repeated blessing
+    '{n} lại tiếp tục gieo duyên lành. Chánh điện xin tùy hỷ công đức.',
+    'Cảm ơn {n} đã thêm một lần dâng lễ. Nguyện phước lành của {n} ngày càng tăng trưởng.',
+    'Lòng thành của {n} thật đáng quý. Xin tùy hỷ, nguyện {n} luôn an vui.',
+  ],
+  join1: [
+    'Chào {n} vừa vào chánh điện. Mời bạn an tọa, cùng tịnh tâm.',
+    'Nam mô A Di Đà Phật. Hoan hỷ đón {n} đến với chánh điện.',
+    'Xin chào {n}. Chúc {n} một buổi tịnh tâm an lành.',
+    'Chào {n}. Mời bạn ngồi xuống, thở nhẹ, buông bớt lo âu.',
+  ],
+  joinMany: [
+    'Chào {n} và {k} bạn vừa vào chánh điện. Mời mọi người an tọa, cùng tịnh tâm.',
+    'Nam mô A Di Đà Phật. Hoan hỷ đón {n} cùng {k} bạn đạo vừa đến.',
+    'Chào {n} và {k} bạn. Mời cùng ngồi xuống, giữ tâm an tịnh.',
+  ],
+  follow1: [
+    'Cảm ơn {n} đã theo dõi chánh điện. Nguyện {n} luôn an lạc.',
+    'Cảm ơn {n} đã theo dõi kênh. Mong được cùng {n} tịnh tâm mỗi ngày.',
+  ],
+  followMany: [
+    'Cảm ơn {n} và {k} bạn đã theo dõi chánh điện. Nguyện mọi người luôn an vui.',
+    'Cảm ơn {n} cùng {k} bạn vừa theo dõi kênh. Hẹn gặp lại quý vị ở những buổi tịnh tâm sau.',
+  ],
+  like: [
+    'Cảm ơn {n} và mọi người đã thả tim cho chánh điện. Mỗi tấm lòng là một đóa sen.',
+    'Những trái tim gửi về chánh điện, xin cảm ơn đại chúng. Nguyện mọi người luôn an vui.',
+    'Cảm ơn {n} đã thả tim. Chúc {n} tâm luôn nhẹ nhàng.',
+    'Cảm ơn quý vị đã thả tim. Thương mình, thương người, đó cũng là tu.',
+  ],
+  xam: [
+    '{n} xin được quẻ số {no}, {level}. Lời bàn: {meaning}',
+    'Quẻ của {n}: số {no}, {level}. {meaning}',
+    'Nam mô A Di Đà Phật. {n} được quẻ số {no}, quẻ {level}. Lời bàn: {meaning}',
+  ],
+  idle: [
+    'Nam mô A Di Đà Phật. Mời quý vị bình luận một câu để vào chánh điện, cùng ngồi xuống tịnh tâm.',
+    'Hít vào thật chậm, thở ra thật nhẹ. Tâm an thì cảnh an. Ai muốn vào ngồi, xin bình luận một câu.',
+    'Một lời nói hiền, một ý nghĩ lành, là đã gieo một hạt giống tốt. Mời quý vị bình luận để cùng vào chánh điện.',
+    'Buông bớt lo âu, giữ lấy hơi thở này. Ai muốn thắp một nén nhang, xin gõ chữ dâng hương.',
+    'Giận một phút, mất vui cả ngày. Nhịn một câu, lòng nhẹ cả đời. Mời quý vị cùng tịnh tâm.',
+    'Bình an không ở đâu xa, bình an ở ngay hơi thở này. Mời quý vị ngồi xuống cùng chánh điện.',
+    'Nước chảy đá mòn, tu tâm cũng vậy, mỗi ngày một chút. Bình luận một câu để vào ngồi cùng đại chúng.',
+    'Lời Phật dạy: hận thù không diệt được hận thù, chỉ có tình thương mới làm hận thù lắng xuống.',
+    'Ai muốn lạy Phật, xin gõ chữ lạy. Ai muốn dâng hoa, xin gõ dâng hoa.',
+    'Cảm ơn quý vị đang lặng lẽ ngồi cùng chánh điện. Chỉ cần một câu bình luận là được ngồi lên bồ đoàn.',
+    'Quá khứ đã qua, tương lai chưa tới. Sống trọn vẹn giây phút này, đó là bình an.',
+    'Chuông chùa ngân nhẹ, mời quý vị gác lại bộn bề, cùng niệm một câu Nam mô A Di Đà Phật.',
+  ],
+  idleXam: [
+    'Ai muốn xin một quẻ đầu buổi, xin gõ chữ xin xăm. Mỗi người được xin một lần.',
+    'Mời quý vị gõ quẻ tử vi để lên bàn thờ rút một quẻ, nghe lời khuyên lành cho mình.',
+  ],
+};
+// random line, never the same one twice in a row in its list
+const lastPick = new Map();
+function pick(list){
+  let i = Math.floor(Math.random() * list.length);
+  if (list.length > 1 && i === lastPick.get(list)) i = (i + 1 + Math.floor(Math.random() * (list.length - 1))) % list.length;
+  lastPick.set(list, i); return list[i];
+}
+const fill = (t, o) => t.replace(/\{(\w+)\}/g, (_, k) => String(o[k] ?? ''));
+// TikTok name → something a voice can read (from Lớp Học Chữ / Đi Chùa Online): fancy letters to plain ones, no emoji or
+// symbols, "MinhTuan" → "Minh Tuan", "an99" → "an chín chín", long numbers and default "user123456" names dropped, 5 words max.
+const DIGITS = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
+const NAME_STARTS = ['hoang', 'tuyet', 'thanh', 'trung', 'quang', 'minh', 'ngoc', 'phuc', 'xuan', 'quoc', 'viet', 'tien', 'tuan', 'hong', 'duy', 'van', 'kim', 'hai', 'nam'];
+function speakName(name){
+  let s = String(name || '').normalize('NFKC').replace(/[\u{FE00}-\u{FE0F}‍⃣]/gu, '')
+    .replace(/[^\p{L}\p{M}\p{N}\s._-]/gu, ' ').normalize('NFC').replace(/\s+/g, ' ').trim();
+  if (!s || /^user\d{4,}$/i.test(s) || (settings.filterOn && wordFilter.check(s).bad)) return 'bạn';
+  s = s.replace(/(\p{Ll})(\p{Lu})/gu, '$1 $2').replace(/(\p{L})(\d)/gu, '$1 $2').replace(/(\d)(\p{L})/gu, '$1 $2').replace(/[._-]+/g, ' ');
+  const out = [];
+  for (const w of s.split(/\s+/).filter(Boolean)){
+    if (/^\d+$/.test(w)){ if (w.length <= 4) out.push([...w].map(d => DIGITS[d]).join(' ')); continue; }
+    const st = /^[a-z]+$/.test(w) ? NAME_STARTS.find(p => w.startsWith(p) && w.length - p.length >= 2) : undefined;
+    if (st) out.push(st, w.slice(st.length)); else out.push(w);
+  }
+  return out.slice(0, 5).join(' ').trim() || 'bạn';
+}
+let lastSayAt = Date.now();
+function say(text, prio = false){
+  if (!settings.voiceOn || !text) return;
+  lastSayAt = Date.now();
+  broadcast({ t:'say', text: String(text).slice(0, 600), prio: !!prio });
+  addLog('🔊 ' + String(text).slice(0, 90) + (text.length > 90 ? '…' : ''));
+}
+// Gifts: thanks jump the queue. Gifts close together from one person become ONE thank-you (the first after a 3.5 s pause,
+// the next ones at most once per 25 s per person, all summed up). Big (≥ 99 coins) gets the solemn wording.
+const giftPend = new Map(), giftThanked = new Map();
+function voiceGift(id, name, coins){
+  if (!settings.voiceOn || !settings.voiceGift) return;
+  const now = Date.now(), p = giftPend.get(id) || { coins: 0, first: now };
+  p.coins += coins; p.name = name; giftPend.set(id, p);
+  clearTimeout(p.timer);
+  const last = giftThanked.get(id) || 0;
+  const due = Math.max(now + 3500, last + 25_000);
+  p.timer = setTimeout(() => flushGift(id), Math.min(due, Math.max(p.first + 12_000, last + 25_000)) - now);
+}
+function flushGift(id){
+  const p = giftPend.get(id); giftPend.delete(id); if (!p) return;
+  const now = Date.now(), again = now - (giftThanked.get(id) || 0) < 5 * 60_000;
+  giftThanked.set(id, now); if (giftThanked.size > 3000) giftThanked.clear();
+  const list = p.coins >= 99 ? VOICE.gift3 : again ? VOICE.giftAgain : p.coins >= 10 ? VOICE.gift2 : VOICE.gift1;
+  say(fill(pick(list), { n: speakName(p.name) }), true);
+}
+// Newcomers and follows: at most one line per 20 s (30 s for follows); a busy room becomes "X và N bạn".
+function batcher(gapMs, one, many, enabled){
+  let names = [], timer = null, last = 0;
+  const flush = () => { timer = null; if (!names.length || !enabled()) { names = []; return; }
+    const n = speakName(names.at(-1)), k = names.length - 1; names = []; last = Date.now();
+    say(k ? fill(pick(many), { n, k }) : fill(pick(one), { n })); };
+  return name => {
+    if (!settings.voiceOn || !enabled()) return;
+    if (!names.includes(name)) names.push(name); if (names.length > 500) names.shift();
+    if (!timer) timer = setTimeout(flush, Math.max(2500, last + gapMs - Date.now()));
+  };
+}
+const voiceJoin = batcher(20_000, VOICE.join1, VOICE.joinMany, () => settings.voiceJoin);
+const voiceFollow = batcher(30_000, VOICE.follow1, VOICE.followMany, () => settings.voiceLike);
+// Hearts: a thank-you now and then, once 30+ hearts have come in and at least 90 s after the last one.
+let likeN = 0, likeName = '', likeAt = 0;
+function voiceLike(name, n){
+  if (!settings.voiceOn || !settings.voiceLike) return;
+  likeN += n; likeName = name;
+  if (likeN < 30 || Date.now() - likeAt < 90_000) return;
+  likeN = 0; likeAt = Date.now();
+  say(fill(pick(VOICE.like), { n: speakName(likeName) }));
+}
+// Quiet for voiceIdleMin minutes (only while an overlay with sound is open): a gentle reminder or a short teaching.
+setInterval(() => {
+  if (!settings.voiceOn || !settings.voiceIdle || Date.now() - lastSayAt < settings.voiceIdleMin * 60_000) return;
+  if (!overlayStatus().sound) { lastSayAt = Date.now(); return; }
+  say(pick(settings.xamOn && Math.random() < .2 ? VOICE.idleXam : VOICE.idle));
+}, 10_000);
 
 // Auto scene switch: every sceneEveryMin minutes, the next scene not in sceneOff. Picking a scene by hand restarts the wait.
 let sceneTimer = null, sceneAt = 0;
@@ -350,7 +524,9 @@ async function connectTikTok(uniqueId, isRetry){
       const id = uid(d.user); if (!id || blocked.has(id)) return;
       seat(id, nm(d.user), { avatar: av(d.user) });                  // liking proves they are still watching
       broadcast({ t:'like', id, n: +(d.count ?? d.likeCount) || 1 });
+      voiceLike(nm(d.user), +(d.count ?? d.likeCount) || 1);
     });
+    conn.on(WebcastEvent.FOLLOW, d => { const id = uid(d.user); if (id && !blocked.has(id)) voiceFollow(cleanName(nm(d.user), id)); });
     conn.on(WebcastEvent.ROOM_USER, d => setViewerCount(d.total ?? d.viewerCount));
     conn.on(ControlEvent.DISCONNECTED, () => {
       if (tiktok !== conn) return;
@@ -498,7 +674,10 @@ function onControl(m){
     case 'mo': broadcast({ t:'mo1' }); break;
     case 'chant': chant(); break;
     case 'openOverlay': if (!openOverlayWindow()) broadcast({ t:'openOverlayHere' }, 'control'); break;
-    case 'notice': if (m.text) broadcast({ t:'notice', text: String(m.text).slice(0, 300) }); break;
+    case 'notice': if (m.text){ const text = String(m.text).slice(0, 300); broadcast({ t:'notice', text }); if (settings.voiceChant) say(text, true); } break;
+    case 'speak': if (String(m.text || '').trim()) say(String(m.text).trim().slice(0, 300), true); break;
+    case 'follow': { const n = String(m.name || 'Khách').slice(0, 18); voiceFollow(cleanName(n, 'sim_' + n)); break; }
+    case 'like': { const n = String(m.name || 'Khách').slice(0, 18), { v } = seat('sim_' + n, n); if (v){ broadcast({ t:'like', id: v.id, n: 15 }); voiceLike(v.name, 15); } break; }
     case 'settings': {
       const was = [settings.scene, settings.sceneAuto, settings.sceneEveryMin].join();
       applySettings(m.settings || {}); saveSettings();
@@ -526,6 +705,8 @@ const SETTING_RULES = {
   scene: v => allScenes().includes(v) ? v : 'hall', sceneAuto: Boolean, sceneEveryMin: v => clamp(v, 1, 240),
   sceneOff: v => allScenes().filter(id => Array.isArray(v) && v.includes(id)),
   bgAltar: Boolean,
+  voiceOn: Boolean, voiceGift: Boolean, voiceJoin: Boolean, voiceChant: Boolean, voiceXam: Boolean, voiceLike: Boolean, voiceIdle: Boolean,
+  voiceGender: v => v === 'm' ? 'm' : 'f', voiceRate: v => clamp(v, 60, 130), voiceVol: v => clamp(v, 0, 100), voiceIdleMin: v => clamp(v, 1, 15),
   guide: v => { const l = (Array.isArray(v) ? v : []).slice(0, 8).map(r => ({ icon: String(r?.icon || '').replace(/\u{1FAB7}/gu, '\u{1F338}').slice(0, 8), text: String(r?.text || '').slice(0, 40),
       action: ACTIONS.includes(r?.action) ? r.action : r?.action === undefined ? guessAction(r?.text) : '' })).filter(r => r.icon || r.text);
     return l.length ? l : DEFAULT_GUIDE; },
@@ -555,6 +736,7 @@ scheduleChant(); scheduleScene();
 //    same browser cannot send control commands
 //  • static files: only /assets and /live, no dot-files, no node_modules, no server source, no path escapes
 //  • no TikTok password, cookie or session is ever used or stored; only public room events are read
+//  • /api/tts only takes text + one of two fixed voices, and refuses requests made by other sites (Sec-Fetch-Site)
 const HOST = process.env.HOST || '127.0.0.1';
 const MIME = { '.html':'text/html; charset=utf-8', '.js':'text/javascript', '.css':'text/css', '.json':'application/json',
   '.png':'image/png', '.jpg':'image/jpeg', '.webp':'image/webp', '.mp3':'audio/mpeg', '.m4a':'audio/mp4', '.ogg':'audio/ogg', '.wav':'audio/wav', '.svg':'image/svg+xml', '.ico':'image/x-icon' };
@@ -626,11 +808,106 @@ function deleteUpload(kind, name){
   fs.unlink(path.join(u.dir, name), err => { if (err) return addLog(`❌ Không xóa được ${name}: ${err.message}`); addLog(`🗑 Đã xóa ${name}`); u.after(); });
 }
 
+/* ------------------------------------------------------------------ TTS */
+// GET /api/tts?text=…&v=f|m&rate=0.9 → mp3. Microsoft Edge neural voices (msedge-tts, no key); only the two voices below
+// can be asked for, never a voice name from the URL. Edge answers 429 when hit with several requests at once, so lines
+// go one at a time, the same line asked twice is made once, and a failure is retried after 2, 5 and 10 s. If Edge still
+// fails, Google Translate's voice reads it (cut into ≤ 190-character pieces); that one is not cached, so the next
+// time the line is asked for, Edge is tried again. Up to 200 Edge lines are kept in memory.
+const TTS_VOICES = { f: 'vi-VN-HoaiMyNeural', m: 'vi-VN-NamMinhNeural' };
+const escapeXml = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+function splitText(text, max = 190){
+  const out = []; let rest = text.trim();
+  while (rest.length > max){
+    const win = rest.slice(0, max + 1);
+    let cut = Math.max(win.lastIndexOf('. '), win.lastIndexOf('! '), win.lastIndexOf('? '));
+    if (cut < max / 2) cut = Math.max(win.lastIndexOf(', '), win.lastIndexOf('; '));
+    if (cut < max / 2) cut = win.lastIndexOf(' ');
+    if (cut <= 0) cut = max - 1;
+    out.push(rest.slice(0, cut + 1).trim()); rest = rest.slice(cut + 1).trim();
+  }
+  if (rest) out.push(rest);
+  return out;
+}
+let EdgeLib = null, edgeChain = Promise.resolve();
+const edgeInflight = new Map();
+function edgeTts(text, rate, voice){
+  const key = `${voice}|${rate}|${text}`;
+  if (edgeInflight.has(key)) return edgeInflight.get(key);
+  const job = edgeChain.then(async () => {
+    let last;
+    for (const wait of [0, 2000, 5000, 10000]){
+      if (wait) await sleep(wait);
+      try { return await edgeTtsOnce(text, rate, voice); } catch (e) { last = e; }
+    }
+    throw last;
+  });
+  edgeChain = job.catch(() => {});
+  edgeInflight.set(key, job);
+  job.finally(() => edgeInflight.delete(key)).catch(() => {});
+  return job;
+}
+async function edgeTtsOnce(text, rate, voice){
+  EdgeLib ||= await import('msedge-tts');
+  const tts = new EdgeLib.MsEdgeTTS();
+  let timer;
+  try {
+    await tts.setMetadata(voice, EdgeLib.OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3);
+    const { audioStream } = tts.toStream(escapeXml(text), { rate: `${rate >= 1 ? '+' : ''}${Math.round((rate - 1) * 100)}%`, pitch: '+0%' });
+    const chunks = [];
+    const read = (async () => { for await (const c of audioStream) chunks.push(c); })();
+    await Promise.race([read, new Promise((_, no) => { timer = setTimeout(() => no(new Error('Edge TTS quá 20 giây')), 20_000); })]);
+    if (!chunks.length) throw new Error('Edge TTS không trả âm thanh');
+    return Buffer.concat(chunks);
+  } finally { clearTimeout(timer); try { tts.close(); } catch {} }
+}
+async function googleTts(text){
+  const parts = [];
+  for (const chunk of splitText(text)){
+    const r = await fetch(`https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=${encodeURIComponent(chunk)}`, { signal: AbortSignal.timeout(15_000),
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', Referer: 'https://translate.google.com/' } });
+    if (!r.ok) throw new Error('Google TTS lỗi ' + r.status);
+    parts.push(Buffer.from(await r.arrayBuffer()));
+  }
+  return Buffer.concat(parts);
+}
+const ttsCache = new Map();
+let ttsWarnAt = 0;
+async function onTts(req, res, url){
+  // only this server's own pages (and curl / OBS, which send no Sec-Fetch-Site): another site can't make it talk
+  const site = req.headers['sec-fetch-site'];
+  if (site && site !== 'same-origin' && site !== 'none') { res.writeHead(403).end(); return; }
+  const text = String(url.searchParams.get('text') || '').replace(/\s+/g, ' ').trim().slice(0, 600);
+  if (!text) { res.writeHead(400).end('thiếu text'); return; }
+  const rate = Math.round(Math.min(1.3, Math.max(0.6, +url.searchParams.get('rate') || 0.9)) * 100) / 100;
+  const voice = TTS_VOICES[url.searchParams.get('v')] || TTS_VOICES.f;
+  const key = `${voice}|${rate}|${text}`;
+  let audio = ttsCache.get(key), fallback = false;
+  try {
+    if (!audio){
+      try { audio = await edgeTts(text, rate, voice); }
+      catch (e) {
+        if (Date.now() - ttsWarnAt > 60_000){ ttsWarnAt = Date.now(); addLog('⚠️ Giọng Edge lỗi (' + (e?.message || e) + '), tạm đọc bằng giọng Google'); }
+        audio = await googleTts(text); fallback = true;
+      }
+      if (!fallback){ ttsCache.set(key, audio); if (ttsCache.size > 200) ttsCache.delete(ttsCache.keys().next().value); }
+    }
+    res.writeHead(200, { 'Content-Type': 'audio/mpeg', 'Content-Length': audio.length, 'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': fallback ? 'no-store' : 'private, max-age=86400' });
+    res.end(req.method === 'HEAD' ? undefined : audio);
+  } catch (e) {
+    if (Date.now() - ttsWarnAt > 60_000){ ttsWarnAt = Date.now(); addLog('❌ Không tạo được giọng đọc (mất mạng?): ' + (e?.message || e)); }
+    if (!res.headersSent) res.writeHead(502).end();
+  }
+}
+
 const server = http.createServer((req, res) => {
   if (!okHost(req.headers.host)) { res.writeHead(421).end('wrong host'); return; }
   let url, p; try { url = new URL(req.url, 'http://x'); p = decodeURIComponent(url.pathname); } catch { res.writeHead(400).end(); return; }
   if (req.method === 'POST' && p === '/upload') return onUpload(req, res, url);
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405).end(); return; }
+  if (p === '/api/tts') return onTts(req, res, url);
   const file = resolveStatic(p);
   if (!file) { res.writeHead(404).end('not found'); return; }
   fs.stat(file, (err, st) => {
