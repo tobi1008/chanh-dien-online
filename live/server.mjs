@@ -30,6 +30,7 @@ const DEFAULT_GUIDE = [ { icon:'💬', text:'Bình luận để vào', action:''
 const settings = {
   title: 'Chánh Điện Tịnh Tâm',
   subtitle: 'Nam Mô A Di Đà Phật',
+  showPlaque: true,                  // the name board at the top of the overlay (title + subtitle)
   music: true, mo: true, moBpm: 52,
   autoChant: true, chantEveryMin: 3,
   showEnter: true,                   // overlay shows "<avatar> <name> vừa vào" for everyone entering the live
@@ -517,7 +518,7 @@ function onControl(m){
 const SETTING_RULES = {
   title: v => String(v).slice(0, 40), subtitle: v => String(v).slice(0, 60),
   moBpm: v => clamp(v, 20, 120), chantEveryMin: v => clamp(v, 1, 60),
-  music: Boolean, mo: Boolean, autoChant: Boolean, showEnter: Boolean, syncViewers: Boolean,
+  music: Boolean, mo: Boolean, showPlaque: Boolean, autoChant: Boolean, showEnter: Boolean, syncViewers: Boolean,
   prayerFromChat: Boolean, filterOn: Boolean, xamOn: Boolean,
   filterMode: v => v === 'mask' ? 'mask' : 'hide', filterStrikes: v => clamp(v, 0, 20), filterExtra: v => String(v).slice(0, 3000),
   audioOut: v => String(v).slice(0, 120),

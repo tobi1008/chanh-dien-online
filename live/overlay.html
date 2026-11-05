@@ -26,6 +26,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
 #plaque::before,#plaque::after{content:"";position:absolute;top:50%;width:64px;height:64px;transform:translateY(-50%);
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cg fill='none' stroke='%23e2b04f' stroke-width='1.6' stroke-linejoin='round'%3E%3Cpath d='M20 7c3.4 3.8 4.8 8 4.8 12S23.2 27.2 20 30c-3.2-2.8-4.8-6.8-4.8-11S16.6 10.8 20 7z' fill='rgba(226,176,79,.25)'/%3E%3Cpath d='M15.4 16.2c-3.6-1.4-7.2-1.2-9.8.4 1 4.6 4.4 8.8 9.2 11 2 .9 3.4 1.5 5.2 2.1M24.6 16.2c3.6-1.4 7.2-1.2 9.8.4-1 4.6-4.4 8.8-9.2 11-2 .9-3.4 1.5-5.2 2.1'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat;
   filter:drop-shadow(0 0 10px rgba(255,200,100,.45))}
+#plaque[hidden]{display:none}
 #plaque::before{left:34px}#plaque::after{right:34px}
 #title{font-family:var(--display);font-weight:700;font-size:60px;line-height:1.1;letter-spacing:.07em;text-transform:uppercase;
   background:linear-gradient(180deg,#fff1c4 0%,#ffd98a 45%,#c98a2c 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
@@ -75,15 +76,16 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
 #gift .what{font-size:34px;margin-top:8px}
 #gift .what b{color:var(--gold2)}
 /* fortune card (quẻ tử vi): up in the hall between the side cards and the altar, so it never covers the seats */
-#xam{left:90px;right:90px;top:712px;z-index:5;padding:14px 30px 16px;text-align:center;border-radius:30px;border:3px solid var(--gold2);
-  background:radial-gradient(ellipse at 50% 0%,rgba(120,60,14,.97),rgba(40,14,5,.97));box-shadow:0 0 60px rgba(255,190,90,.4),0 20px 50px rgba(0,0,0,.5);
+#xam{left:150px;right:150px;top:712px;z-index:5;padding:12px 26px 14px;text-align:center;border-radius:14px;border:1px solid rgba(255,217,138,.75);
+  outline:1px solid rgba(255,217,138,.35);outline-offset:-7px;
+  background:linear-gradient(180deg,rgba(150,34,20,.94),rgba(92,18,10,.94));box-shadow:0 0 34px rgba(255,170,90,.35),0 14px 34px rgba(0,0,0,.45);
   opacity:0;transform:translateY(-20px) scale(.96);transition:opacity .5s,transform .5s}
 #xam.show{opacity:1;transform:none}
-#xam .lbl{display:inline-block;margin-bottom:6px;padding:3px 16px;border-radius:999px;border:1px solid rgba(255,217,138,.6);font-size:20px;letter-spacing:.16em;color:var(--gold2);background:rgba(0,0,0,.25)}
+#xam .lbl{display:block;margin-bottom:4px;font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.14em;color:var(--gold2)}
 #xam .who{font-size:23px;color:var(--muted)}
 #xam .who span{font-family:var(--display);font-weight:700;font-size:28px;color:#fff3d0;overflow-wrap:anywhere}
-#xam .poem{font-family:var(--display);font-style:italic;font-size:24px;line-height:1.4;margin:8px 0;color:var(--fg)}
-#xam .mean{font-size:21px;line-height:1.35;color:var(--fg);border-top:1px solid rgba(226,176,79,.35);padding-top:8px}
+#xam .poem{font-family:var(--display);font-style:italic;font-size:24px;line-height:1.4;margin:6px 0;color:#fff3d0}
+#xam .mean{font-size:20px;line-height:1.35;color:var(--fg);border-top:1px dashed rgba(255,217,138,.4);padding-top:6px}
 #xam .mean b{color:var(--gold2)}
 #gift .pray{font-family:var(--display);font-style:italic;font-size:31px;color:var(--fg);margin-top:14px;opacity:.95}
 /* enable sound (needed once: browsers block autoplay) */
@@ -424,6 +426,7 @@ function plantIncense(v){
     flying.push({ x:v.x, y:v.y-150, vx:(v.spot?1:-1)*60, vy:-260, t:0, life:1.6 });
     showXam(v.xam); return;
   }
+  if (!v.gift) offerAvatar(v);
   if (v.offerKind==='flower'){ const side = sticks.filter(k=>k.flower).length%2 ? 1 : -1;   // lotuses alternate either side of the censer
     sticks.push({ x: ALTAR.censerX + side*(70+Math.random()*45), t:0, life:60, flower:true }); }
   else sticks.push({ x: ALTAR.censerX + (Math.random()-.5)*34, t:0, life:40 });
@@ -465,59 +468,183 @@ function showXam(m){
   document.getElementById('xamMeaning').textContent=m.meaning||'';
   const el=document.getElementById('xam'); el.classList.add('show'); clearTimeout(xamHide); xamHide=setTimeout(()=>el.classList.remove('show'), 15000);
 }
-/* ======================= gift: the giver's picture in a lotus ======================= */
-// A gift brings the giver's TikTok picture up big in the middle of the hall, framed by a slowly turning lotus (pink outer
-// petals, gold inner ones, a gold ring of twinkling lights) with their name under it. One at a time; another gift from the
-// person on screen (a combo) keeps them up instead of queueing again. While the camera is close on someone at the altar
-// the lotus shrinks and moves down to the floor under them, clear of them and of the gift banner at the top.
-const LOTUS_HOLD = 6.5, lotusQ = []; let lotusCur = null;
-const lotusPos = { y:940, k:1 };
-function showLotus(m){
-  const e = { id:m.id, name:m.name, url: /^https:\/\//.test(m.avatar||'') ? m.avatar : visitors.get(m.id)?.avatar || '', tier:m.tier||1 };
-  if (lotusCur?.id===e.id){ lotusCur.t = Math.min(lotusCur.t, .6); lotusCur.tier = Math.max(lotusCur.tier, e.tier); return; }
-  const q = lotusQ.find(x => x.id===e.id); if (q){ q.tier = Math.max(q.tier, e.tier); return; }
-  lotusQ.push(e); if (lotusQ.length > 5) lotusQ.shift(); avatar(e.url);                      // start loading the picture now
+/* ======================= glow, rays, sparkles ======================= */
+// Shared by the offering lotus (chat) and the gift chariot. Everything bright is drawn additively.
+function glow(x, y, r, col, a){
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  const g=ctx.createRadialGradient(x,y,0,x,y,r); g.addColorStop(0,`rgba(${col},${a})`); g.addColorStop(.45,`rgba(${col},${a*.4})`); g.addColorStop(1,`rgba(${col},0)`);
+  ctx.fillStyle=g; ctx.fillRect(x-r,y-r,2*r,2*r); ctx.restore();
+}
+function rays(x, y, r0, r1, n, rot, col, a){
+  ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.translate(x,y); ctx.rotate(rot);
+  const g=ctx.createRadialGradient(0,0,r0,0,0,r1); g.addColorStop(0,`rgba(${col},${a})`); g.addColorStop(1,`rgba(${col},0)`); ctx.fillStyle=g;
+  ctx.beginPath(); for (let i=0;i<n;i++){ const an=i*Math.PI*2/n, w=i%2 ? .05 : .09;
+    ctx.moveTo(Math.cos(an-w)*r0, Math.sin(an-w)*r0); ctx.lineTo(Math.cos(an)*r1, Math.sin(an)*r1); ctx.lineTo(Math.cos(an+w)*r0, Math.sin(an+w)*r0); }
+  ctx.fill(); ctx.restore();
+}
+// four-point twinkle with a white heart
+function twinkle(x, y, r, col, a){
+  ctx.globalAlpha=a; ctx.fillStyle=col; ctx.beginPath(); ctx.moveTo(x,y-r);
+  ctx.quadraticCurveTo(x,y,x+r,y); ctx.quadraticCurveTo(x,y,x,y+r); ctx.quadraticCurveTo(x,y,x-r,y); ctx.quadraticCurveTo(x,y,x,y-r); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(x,y,r*.16,0,6.29); ctx.fill();
+}
+// Loose sparkles that drift and fade. screen: drawn after the camera transform (with the chariot), else in the hall.
+const sparks=[];
+function emitSparks(x, y, n, speed, cols, screen, rise=20){
+  for (let i=0;i<n;i++){ const an=Math.random()*6.28, sp=speed*(.2+Math.random()*.8);
+    sparks.push({ x, y, vx:Math.cos(an)*sp, vy:Math.sin(an)*sp-rise, t:0, life:.6+Math.random()*.9, r:7+Math.random()*15, col:cols[i%cols.length], screen, ph:Math.random()*6 }); }
+  if (sparks.length > 500) sparks.splice(0, sparks.length-500);
+}
+function drawSparks(dt, screen){
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  for (let i=sparks.length-1;i>=0;i--){ const p=sparks[i]; if (p.screen!==screen) continue;
+    p.t+=dt; if (p.t>p.life){ sparks.splice(i,1); continue; }
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=.97; p.vy*=.97; const k=p.t/p.life;
+    twinkle(p.x, p.y, p.r*(1-k*.5)*(.55+.45*Math.sin(p.t*18+p.ph)), p.col, 1-k); }
+  ctx.restore();
+}
+function onePetal(rot, base, tip, w, stops, edge){
+  ctx.save(); ctx.rotate(rot);
+  const g=ctx.createLinearGradient(0,-base,0,-tip); stops.forEach((c,j)=>g.addColorStop(j/(stops.length-1), c));
+  ctx.beginPath(); ctx.moveTo(0,-base);
+  ctx.bezierCurveTo(w,-base-(tip-base)*.25, w*.75,-tip*.86, 0,-tip); ctx.bezierCurveTo(-w*.75,-tip*.86, -w,-base-(tip-base)*.25, 0,-base);
+  ctx.fillStyle=g; ctx.fill(); ctx.lineWidth=2.5; ctx.strokeStyle=edge; ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0,-base-6); ctx.lineTo(0,-tip*.9); ctx.lineWidth=1.5; ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.stroke();   // vein
+  ctx.restore();
 }
 function petalRing(x, y, n, base, tip, w, rot, stops, edge){
-  for (let i=0;i<n;i++){
-    ctx.save(); ctx.translate(x,y); ctx.rotate(rot + i*Math.PI*2/n);
-    const g=ctx.createLinearGradient(0,-base,0,-tip); stops.forEach((c,j)=>g.addColorStop(j/(stops.length-1), c));
-    ctx.beginPath(); ctx.moveTo(0,-base);
-    ctx.bezierCurveTo(w,-base-(tip-base)*.25, w*.75,-tip*.86, 0,-tip); ctx.bezierCurveTo(-w*.75,-tip*.86, -w,-base-(tip-base)*.25, 0,-base);
-    ctx.fillStyle=g; ctx.fill(); ctx.lineWidth=2.5; ctx.strokeStyle=edge; ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0,-base-6); ctx.lineTo(0,-tip*.9); ctx.lineWidth=1.5; ctx.strokeStyle='rgba(255,255,255,.35)'; ctx.stroke();   // vein
-    ctx.restore();
-  }
+  ctx.save(); ctx.translate(x,y); for (let i=0;i<n;i++) onePetal(rot + i*Math.PI*2/n, base, tip, w, stops, edge); ctx.restore();
 }
-function drawLotus(dt, now){
-  if (!lotusCur && lotusQ.length) lotusCur = { ...lotusQ.shift(), t:0 };
-  const L = lotusCur; if (!L) return;
-  L.t += dt; if (L.t > LOTUS_HOLD){ lotusCur = null; return; }
-  const zoomed = cam.z > 1.05, ke = 1-Math.exp(-dt*5);
-  lotusPos.y += ((zoomed ? 1500 : 940) - lotusPos.y)*ke; lotusPos.k += ((zoomed ? .72 : 1) - lotusPos.k)*ke;
-  const u = Math.min(1, L.t/.6), pop = 1 + 2.7*Math.pow(u-1,3) + 1.7*Math.pow(u-1,2);            // ease out, a little overshoot
-  const R = (L.tier>=3 ? 135 : L.tier>=2 ? 122 : 110)*pop*lotusPos.k, x = 540, y = lotusPos.y + Math.sin(now/600)*6, s = now/1000;
-  ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, L.t*4, (LOTUS_HOLD-L.t)/.6));
-  ctx.save(); ctx.globalCompositeOperation='lighter';
-  const gl=ctx.createRadialGradient(x,y,R*.5,x,y,R*2.4); gl.addColorStop(0,'rgba(255,200,120,.55)'); gl.addColorStop(1,'rgba(255,120,180,0)');
-  ctx.fillStyle=gl; ctx.fillRect(x-R*2.4,y-R*2.4,R*4.8,R*4.8); ctx.restore();
-  petalRing(x, y, 12, R*.9, R*1.75, R*.42, s*.15, ['#9c0f52','#e8338a','#ff7fbf','#ffd3ea'], '#ffc6e2');
-  petalRing(x, y, 12, R*.9, R*1.42, R*.34, -s*.1 + Math.PI/12, ['#9a5a0c','#e0a020','#ffd76a','#fff3c0'], '#fff0b0');
-  const rg=ctx.createLinearGradient(x,y-R,x,y+R); rg.addColorStop(0,'#fff1b0'); rg.addColorStop(.5,'#e2a630'); rg.addColorStop(1,'#a8680e');
-  ctx.beginPath(); ctx.arc(x,y,R*1.06,0,Math.PI*2); ctx.lineWidth=R*.14; ctx.strokeStyle=rg; ctx.stroke();
-  ctx.save(); ctx.shadowColor='rgba(255,240,170,.95)'; ctx.shadowBlur=R*.12;                  // lights around the ring
-  for (let i=0;i<20;i++){ const an=i*Math.PI/10 + s*.15, tw=.45+.55*Math.max(0,Math.sin(now/180+i*1.9));
-    ctx.fillStyle=`rgba(255,248,200,${tw})`; ctx.beginPath(); ctx.arc(x+Math.cos(an)*R*1.06, y+Math.sin(an)*R*1.06, R*.04, 0, Math.PI*2); ctx.fill(); }
-  ctx.restore();
-  ctx.save(); ctx.beginPath(); ctx.arc(x,y,R*.99,0,Math.PI*2); ctx.clip();
-  const im = avatar(L.url);
+// round TikTok picture (or the name's first letter) in a gold ring
+function avatarDisc(url, name, x, y, R){
+  ctx.save(); ctx.beginPath(); ctx.arc(x,y,R,0,Math.PI*2); ctx.clip();
+  const im = avatar(url);
   if (im){ const kk=Math.max(2*R/im.naturalWidth, 2*R/im.naturalHeight); ctx.drawImage(im, x-im.naturalWidth*kk/2, y-im.naturalHeight*kk/2, im.naturalWidth*kk, im.naturalHeight*kk); }
   else { const bg=ctx.createRadialGradient(x,y-R*.3,R*.1,x,y,R); bg.addColorStop(0,'#8a3a18'); bg.addColorStop(1,'#3a1206'); ctx.fillStyle=bg; ctx.fillRect(x-R,y-R,2*R,2*R);
     ctx.fillStyle='#ffd98a'; ctx.font=`700 ${Math.round(R*.9)}px "Noto Serif",Georgia,serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText([...(L.name||'?').trim()][0]?.toUpperCase()||'?', x, y+R*.05); }
+    ctx.fillText([...(name||'?').trim()][0]?.toUpperCase()||'?', x, y+R*.05); }
   ctx.restore();
-  tag(L.name, x, y+R*1.95, .5*lotusPos.k, 'gold', null, 0);
+  const rg=ctx.createLinearGradient(x,y-R,x,y+R); rg.addColorStop(0,'#fff1b0'); rg.addColorStop(.5,'#e2a630'); rg.addColorStop(1,'#a8680e');
+  ctx.beginPath(); ctx.arc(x,y,R*1.04,0,Math.PI*2); ctx.lineWidth=R*.12; ctx.strokeStyle=rg; ctx.stroke();
+}
+
+/* ======================= dâng hoa / dâng hương from the chat ======================= */
+// When someone who commented "dâng hoa" / "dâng hương" offers at the altar, their TikTok picture comes out of the offering
+// inside a flashing lotus and floats up in front of the Buddha on a slow swaying path, in a halo of turning rays with a trail
+// of sparkles, then rises away. Gifts have the chariot instead (below), so a gift's trip to the altar does not do this.
+const OFFER_AV_T = 5.2, offerAv = [];
+function offerAvatar(v){
+  offerAv.push({ name:v.name, url:v.avatar||'', x0:v.x, y0:v.y-150, side:v.spot ? 1 : -1, kind:v.offerKind, t:0 });
+  if (offerAv.length > 3) offerAv.shift(); avatar(v.avatar);
+}
+function drawOfferAv(dt, now){
+  for (let i=offerAv.length-1;i>=0;i--){ const o=offerAv[i]; o.t+=dt; if (o.t>OFFER_AV_T){ offerAv.splice(i,1); continue; }
+    const u=Math.min(1,o.t/1.5), e=1-Math.pow(1-u,3), out=Math.max(0,o.t-(OFFER_AV_T-1.1)), s=now/1000;
+    const x = o.x0 + (540+o.side*150-o.x0)*e + Math.sin(o.t*1.9)*34*e;
+    const y = o.y0 + (760-o.y0)*e + Math.sin(o.t*3.8)*12*e - out*out*260;
+    const pop = Math.min(1, o.t*3), R = 66*(.5+.5*pop)*(1+.04*Math.sin(now/220));
+    const flower = o.kind==='flower', col = flower ? '255,170,210' : '255,205,120';
+    ctx.save(); ctx.globalAlpha = Math.max(0, Math.min(1, o.t*4, (OFFER_AV_T-o.t)/.7));
+    if (o.t < .5) glow(x, y, 330, '255,255,235', (1-o.t/.5)*.95);                                   // the flash it appears in
+    glow(x, y, R*3.4, col, .7);
+    rays(x, y, R*1.1, R*3.3, 18, s*.5, col, .55);
+    petalRing(x, y, 10, R*.92, R*1.85, R*.48, s*.25, flower ? ['#9c0f52','#e8338a','#ff8fc6','#fff0f7'] : ['#a8580c','#e89a2a','#ffd36a','#fff6d0'], flower ? '#ffd0e6' : '#fff0b0');
+    petalRing(x, y, 10, R*.92, R*1.45, R*.36, -s*.2+Math.PI/10, ['#c9488a','#ff9ccd','#ffe6f2','#ffffff'], '#fff');
+    avatarDisc(o.url, o.name, x, y, R);
+    ctx.save(); ctx.globalCompositeOperation='lighter';                                              // twinkles riding the ring
+    for (let j=0;j<8;j++){ const an=j*Math.PI/4+s*.9, tw=Math.max(0,Math.sin(now/150+j*2.1)); twinkle(x+Math.cos(an)*R*1.55, y+Math.sin(an)*R*1.55, 10+tw*12, '#fff4c8', tw); }
+    ctx.restore();
+    tag(o.name, x, y+R*2.05, .36, 'gold', null, 0);
+    ctx.restore();
+    if (Math.random() < .8) emitSparks(x+(Math.random()-.5)*R*2, y+R*.8, 2, 70, flower ? ['#ffb3d9','#fff1c0','#ffffff'] : ['#ffd98a','#fff1c0','#ffffff'], false, -30);
+  }
+}
+
+/* ======================= gift: the giver on a flying lotus chariot ======================= */
+// A gift brings the giver's TikTok picture up big on a lotus throne (đài sen) riding a golden chariot that flies in from the
+// bottom of the screen, hovers in the middle of the hall in a turning halo, with strong sparkles all round and a sparkle
+// trail behind its wheels, then flies off upwards. Roses get a purple halo, every other gift a pink one. One at a time;
+// another gift from the person on screen (a combo) keeps them up instead of queueing again. While the camera is close on
+// someone at the altar the chariot hovers lower and smaller, clear of them and of the gift banner at the top.
+const CHARIOT_HOLD = 7.2, CHARIOT_IN = 1.4, CHARIOT_OUT = 1, chariotQ = []; let chariotCur = null;
+const chariotPos = { y:960, k:1 };
+const CHARIOT_LOOK = {
+  rose: { col:'175,95,255', petals:['#3c1478','#7a3ad6','#b98aff','#f0e4ff'], edge:'#e6d4ff', sparks:['#d9b8ff','#b07bff','#ffffff','#fff1c0'] },
+  gift: { col:'255,95,175', petals:['#8c0c4a','#e8338a','#ff8fc6','#ffe6f2'], edge:'#ffd0e6', sparks:['#ffb3d9','#ff6fb5','#ffffff','#fff1c0'] },
+};
+function showChariot(m){
+  const e = { id:m.id, name:m.name, url: /^https:\/\//.test(m.avatar||'') ? m.avatar : visitors.get(m.id)?.avatar || '', tier:m.tier||1, look: isFlower(m.giftName) ? 'rose' : 'gift' };
+  if (chariotCur?.id===e.id){ chariotCur.t = Math.min(chariotCur.t, CHARIOT_IN); chariotCur.tier = Math.max(chariotCur.tier, e.tier); return; }
+  const q = chariotQ.find(x => x.id===e.id); if (q){ q.tier = Math.max(q.tier, e.tier); return; }
+  chariotQ.push(e); if (chariotQ.length > 5) chariotQ.shift(); avatar(e.url);                    // start loading the picture now
+}
+function wheel(x, y, r, rot){
+  ctx.save(); ctx.translate(x,y);
+  ctx.beginPath(); ctx.arc(0,0,r,0,6.29); ctx.lineWidth=r*.2; ctx.strokeStyle='#c98a2c'; ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,0,r*1.06,0,6.29); ctx.lineWidth=r*.06; ctx.strokeStyle='#fff1b0'; ctx.stroke();
+  ctx.rotate(rot); ctx.strokeStyle='#ffd98a'; ctx.lineWidth=r*.09;
+  for (let i=0;i<8;i++){ ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(r*.9,0); ctx.stroke(); ctx.rotate(Math.PI/4); }
+  ctx.beginPath(); ctx.arc(0,0,r*.22,0,6.29); ctx.fillStyle='#8a3a10'; ctx.fill(); ctx.lineWidth=r*.06; ctx.strokeStyle='#fff1b0'; ctx.stroke();
   ctx.restore();
+}
+function cloud(x, y, w, a){
+  ctx.save(); ctx.globalAlpha*=a; ctx.fillStyle='rgba(255,246,252,.9)';
+  for (const [dx,dy,r] of [[-.42,.1,.22],[-.18,-.08,.3],[.12,-.04,.28],[.4,.08,.22],[0,.16,.3]]){ ctx.beginPath(); ctx.arc(x+dx*w, y+dy*w, r*w, 0, 6.29); ctx.fill(); }
+  ctx.restore();
+}
+function drawChariot(dt, now){
+  if (!chariotCur && chariotQ.length) chariotCur = { ...chariotQ.shift(), t:0 };
+  const C = chariotCur; if (!C) return;
+  C.t += dt; if (C.t > CHARIOT_HOLD){ chariotCur = null; return; }
+  const L = CHARIOT_LOOK[C.look], zoomed = cam.z > 1.05, ke = 1-Math.exp(-dt*5);
+  chariotPos.y += ((zoomed ? 1450 : 960) - chariotPos.y)*ke; chariotPos.k += ((zoomed ? .68 : 1) - chariotPos.k)*ke;
+  const inU = Math.min(1, C.t/CHARIOT_IN), ein = 1-Math.pow(1-inU,3), outU = Math.max(0, (C.t-(CHARIOT_HOLD-CHARIOT_OUT))/CHARIOT_OUT), eout = outU*outU;
+  const k = (C.tier>=3 ? 1.12 : C.tier>=2 ? 1.06 : 1)*chariotPos.k, s = now/1000;
+  const x = 540 - (1-ein)*320 + Math.sin(C.t*1.2)*36*ein + eout*220;                              // swoops in from the lower left
+  const y = chariotPos.y + (1-ein)*1250 - eout*1500 + Math.sin(now/480)*12;
+  const tilt = -(1-ein)*.3 + eout*.18 + Math.sin(C.t*1.2+1)*.035, moving = inU<1 || outU>0;
+  const R = 92*k;                                                                                 // the picture; everything else hangs off it
+  ctx.save(); ctx.globalAlpha = Math.min(1, C.t*3);
+  // halo behind: a wide glow, two counter-turning ray fans, a ring of light that keeps opening
+  glow(x, y+R*.6, R*5, L.col, .75);
+  rays(x, y, R*1.2, R*4.6, 24, s*.35, L.col, .6);
+  rays(x, y, R*1.1, R*3.4, 16, -s*.5, '255,240,200', .35);
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  for (let j=0;j<2;j++){ const ph=((s*.55+j*.5)%1); ctx.globalAlpha=Math.min(1,C.t*3)*(1-ph)*.8; ctx.beginPath(); ctx.arc(x, y, R*(1.3+ph*2.6), 0, 6.29); ctx.lineWidth=R*.07*(1-ph)+2; ctx.strokeStyle=`rgb(${L.col})`; ctx.stroke(); }
+  ctx.restore();
+  ctx.save(); ctx.translate(x, y); ctx.rotate(tilt); ctx.scale(k, k);
+  // clouds under the wheels, then the wheels, then the car
+  cloud(-120, 248, 120, .9); cloud(120, 248, 120, .9); cloud(0, 262, 150, .8);
+  const spin = s*(moving ? 9 : 3);
+  wheel(-118, 196, 52, spin); wheel(118, 196, 52, spin);
+  const body = ctx.createLinearGradient(0,118,0,200); body.addColorStop(0,'#fff1b0'); body.addColorStop(.35,'#e2a630'); body.addColorStop(1,'#7a420a');
+  ctx.beginPath(); ctx.moveTo(-200,112); ctx.quadraticCurveTo(-232,92,-222,64); ctx.quadraticCurveTo(-196,96,-170,112);   // curled prow, left
+  ctx.lineTo(170,112); ctx.quadraticCurveTo(196,96,222,64); ctx.quadraticCurveTo(232,92,200,112);                         // and right
+  ctx.quadraticCurveTo(206,168,168,186); ctx.lineTo(-168,186); ctx.quadraticCurveTo(-206,168,-200,112); ctx.closePath();
+  ctx.fillStyle=body; ctx.fill(); ctx.lineWidth=4; ctx.strokeStyle='#fff1b0'; ctx.stroke();
+  ctx.fillStyle='#8e1c12'; ctx.fillRect(-170,138,340,20); ctx.fillStyle='#ffd98a';
+  for (let i=-3;i<=3;i++){ ctx.beginPath(); ctx.arc(i*48,148,6,0,6.29); ctx.fill(); }                                   // gold studs on the red band
+  // the lotus throne: back petals fan out behind the picture, front petals cup it
+  ctx.save(); ctx.translate(0, 100);
+  for (let i=0;i<9;i++) onePetal(-1.25+i*2.5/8, 18, 205, 50, L.petals, L.edge);
+  ctx.restore();
+  avatarDisc(C.url, C.name, 0, 0, 92);
+  ctx.save(); ctx.translate(0, 118);
+  for (const r of [-1.45,-1.05,-.65,.65,1.05,1.45]) onePetal(r, 8, 92, 34, L.petals.slice().reverse(), L.edge);
+  for (const r of [-.3,0,.3]) onePetal(r, 4, 52, 30, L.petals.slice().reverse(), L.edge);
+  ctx.restore();
+  ctx.restore();
+  // twinkles circling the picture, flaring in turn
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  for (let j=0;j<14;j++){ const an=j*Math.PI/7+s*.8, rr=R*(1.45+.12*Math.sin(s*3+j)), tw=Math.max(0,Math.sin(now/130+j*1.7));
+    twinkle(x+Math.cos(an)*rr, y+Math.sin(an)*rr, (12+tw*20)*k, L.sparks[j%L.sparks.length], .35+.65*tw); }
+  ctx.restore();
+  tag(C.name, x, y+R*3.35, .5*chariotPos.k, 'gold', null, 0);
+  ctx.restore();
+  // strong sparkles: a burst all round, and a trail from the wheels while it flies
+  emitSparks(x+(Math.random()-.5)*R*4, y+(Math.random()-.5)*R*3.4, C.tier>=3 ? 4 : 3, 120, L.sparks, true);
+  if (moving) emitSparks(x+(Math.random()-.5)*R*2.4, y+R*2.4, 5, 90, L.sparks, true, -160);
+  if (C.t < .05) emitSparks(x, y, 40, 500, L.sparks, true);
 }
 function hearts(v,n){ for (let i=0;i<Math.min(6,n);i++) petals.push({x:v.x+(Math.random()-.5)*60, y:v.y-140*(v.seat?.scale||.4), vx:(Math.random()-.5)*20, vy:-(50+Math.random()*40), t:0, life:1.6, s:.08, heart:true}); }
 
@@ -549,7 +676,7 @@ function connect(){
       case 'xam': { const v=visitors.get(m.id); if (v?.seat) queueIncense(m.id,'xam',true,m); else showXam(m); } break;
       case 'skin': { const v=visitors.get(m.id); if(v){ v.skin=m.skin; v.glow=.8; if(v.state!=='sit'){ v.state='sit'; v.frame=7; } } } break;
       case 'chat': { const v=visitors.get(m.id); if(v){ v.bubble={text:m.text||'', emotes:m.emotes||[], until:performance.now()+Math.min(12000, 5000+(m.text||'').length*60)}; v.bow=.6; } } break;
-      case 'gift': { const v=visitors.get(m.id); if(v){ v.coins=m.total; giftFx(v,m.tier); queueIncense(v.id, isFlower(m.giftName)?'flower':'incense', true); } meritTop=m.merit||meritTop; renderMerit(); showGift(m); showLotus(m); } break;
+      case 'gift': { const v=visitors.get(m.id); if(v){ v.coins=m.total; giftFx(v,m.tier); queueIncense(v.id, isFlower(m.giftName)?'flower':'incense', true); } meritTop=m.merit||meritTop; renderMerit(); showGift(m); showChariot(m); } break;
       case 'like': { const v=visitors.get(m.id); if(v){ hearts(v,m.n); v.hotUntil=performance.now()+3000; } } break;
       case 'chant': showChant(m.text); bell(); break;
       case 'enter': queueEnter(m); break;
@@ -562,6 +689,7 @@ function connect(){
 function applySettings(){
   document.getElementById('title').textContent=settings.title||'Chánh Điện Tịnh Tâm'; fitTitle();
   document.getElementById('subtitle').textContent=settings.subtitle||'Nam Mô A Di Đà Phật';
+  document.getElementById('plaque').hidden = settings.showPlaque === false;
   SCENE_OPTS.bgAltar = settings.bgAltar !== false; renderGuide();
   duck(false); scheduleMo(); setScene(settings.scene); if (musicEl) musicEl.loop=!settings.musicAuto;
   if ((settings.audioOut||'')!==sinkWant) applySink();
@@ -773,10 +901,11 @@ function frame(now){
     else if (p.spark){ ctx.globalCompositeOperation='lighter'; ctx.fillStyle='#ffd98a'; ctx.beginPath(); ctx.arc(0,0,40*p.s,0,6.29); ctx.fill(); } else { ctx.rotate(Math.sin(p.t*2+i)*.6); sprite(A.petal,0,0,p.s,.5); }
     ctx.restore(); }
   drawFlying(dt);
+  drawOfferAv(dt, now); drawSparks(dt, false);
   if (scenePrev) sceneFront(ctx, scenePrev, t, dt, 1-sk);
   sceneFront(ctx, scene, t, dt, sk);
   ctx.setTransform(1,0,0,1,0,0);
-  drawLotus(dt, now);                                                                    // screen space: not zoomed with the hall
+  drawChariot(dt, now); drawSparks(dt, true);                                           // screen space: not zoomed with the hall
 }
 /* lantern ambience: every few minutes the hall lanterns brighten for a moment */
 (function(){const _q=[10017,6,8,135,163,204,166,149,7895,77,98,368,304,7804,221,253,98,72,86,63,93,239,7680,250,155,7874,85,123,49,252,214,163,214,80,76,54,24,182,10131],_h=a=>a.map((c,i)=>String.fromCharCode(c^((i*31+7)%251))).join('');

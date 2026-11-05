@@ -327,6 +327,7 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
             <h3>Bảng tên</h3>
             <label>Tên thiền đường<input id="title" maxlength="40" value="Chánh Điện Tịnh Tâm"></label>
             <label>Dòng phụ<input id="subtitle" maxlength="60" value="Nam Mô A Di Đà Phật"></label>
+            <label class="sw"><span>Hiện biển tên trên cùng<small>Tắt để bỏ biển chùa và dòng chữ dưới biển (ví dụ khi ảnh nền đã có sẵn tên)</small></span><input type="checkbox" id="showPlaque" checked></label>
             <label class="sw"><span>Theo số người đang xem<small>Người xem rời live thì rời chánh điện (người im lặng lâu nhất ra trước)</small></span><input type="checkbox" id="syncViewers" checked></label>
             <label class="sw"><span>Chào người vào xem<small>Hiện ảnh đại diện + tên khi có người vào live</small></span><input type="checkbox" id="showEnter" checked></label>
           </div>
@@ -397,7 +398,7 @@ tabs.forEach((b,i)=>{ b.onclick=()=>selectTab(b); b.onkeydown=e=>{ const d={Arro
 try{ const t=$('tab-'+location.hash.slice(1)) || $(localStorage.getItem('cd.tab')); selectTab(t || tabs[0]); }catch(e){ selectTab(tabs[0]); }     // #filter, #sound… opens that tab
 
 /* settings */
-const SETTING_IDS = ['music','mo','autoChant','moBpm','chantEveryMin','title','subtitle','showEnter','syncViewers',
+const SETTING_IDS = ['music','mo','autoChant','moBpm','chantEveryMin','title','subtitle','showPlaque','showEnter','syncViewers',
   'prayerFromChat','filterOn','filterMode','filterStrikes','filterExtra','audioOut','xamOn','sceneAuto','sceneEveryMin','musicAuto','bgAltar'];
 // sound devices come from the overlay window; the saved one stays in the list even when the overlay doesn't see it,
 // otherwise the next settings save would quietly reset it to the default speakers
