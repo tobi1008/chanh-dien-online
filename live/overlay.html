@@ -605,6 +605,10 @@ function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,
 // Name cut to fit its seat ("…") and its width, remembered: re-measuring every name letter by letter each frame
 // adds up fast in a full hall. ctx.font must already be set for this size.
 const tagFits = new Map();
+// Widths measured before the web font has loaded are the fallback font's: words would run together once it arrives.
+// Each new font load starts a new generation and every cached measurement is redone.
+let fontGen = 0;
+document.fonts?.addEventListener('loadingdone', () => { fontGen++; tagFits.clear(); });
 function fitTag(text, fs, maxW, extra){
   const key = text+'|'+fs+'|'+Math.round(maxW||0)+'|'+Math.round(extra);
   let r = tagFits.get(key); if (r) return r;
@@ -628,7 +632,7 @@ function tag(text,x,y,s,style,av,maxW){
 // Emoji come from the system emoji font. The layout is measured once per bubble and size, not every frame.
 const BUBBLE_LINES = 5;
 function bubbleLayout(b, fs){
-  if (b.lay?.fs===fs) return b.lay;
+  if (b.lay?.fs===fs && b.lay.gen===fontGen) return b.lay;
   const maxW=fs*13, em=fs*1.3, tokens=[];
   const pushText = str => { for (const part of str.split(/(\s+)/)){ if (!part) continue;
     if (/^\s+$/.test(part)){ tokens.push({ text:' ', w:ctx.measureText(' ').width, space:true }); continue; }
@@ -649,7 +653,7 @@ function bubbleLayout(b, fs){
   if (cut){ const dots={ text:'…', w:ctx.measureText('…').width };
     while (lines[L].length && widths[L]+dots.w>maxW) widths[L]-=lines[L].pop().w;
     lines[L].push(dots); widths[L]+=dots.w; }
-  return b.lay = { fs, em, lines, widths, w:Math.max(...widths)+fs*1.1, lh:Math.max(fs*1.35, em*1.05) };
+  return b.lay = { fs, gen:fontGen, em, lines, widths, w:Math.max(...widths)+fs*1.1, lh:Math.max(fs*1.35, em*1.05) };
 }
 function bubble(b,x,y,s){
   const fs=Math.max(18,Math.round(26*s/.4)); ctx.font=`500 ${fs}px "Be Vietnam Pro","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
