@@ -164,7 +164,7 @@ function sendXam(v){
   // the overlay reads `say` when the card shows up (after the walk to the altar), not when the message arrives
   const said = settings.voiceOn && settings.voiceXam ? fill(pick(VOICE.xam), { n: speakName(v.name), no: no + 1, level: x.level, meaning: x.meaning }) : '';
   if (said) lastSayAt = Date.now();
-  broadcast({ t:'xam', id: v.id, name: v.name, no: no + 1, level: x.level, poem: x.poem, meaning: x.meaning, say: said });
+  broadcast({ t:'xam', id: v.id, name: v.name, no: no + 1, title: x.title, level: x.level, poem: x.poem, meaning: x.meaning, say: said });
   addLog(`🎋 ${v.name} xin được xăm số ${no + 1} (${x.level})`);
 }
 function onXamAsk(v){

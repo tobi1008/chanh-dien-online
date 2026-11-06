@@ -75,18 +75,25 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
 #gift .who{font-family:var(--display);font-weight:700;font-size:54px;line-height:1.15;color:#fff3d0;text-shadow:0 2px 0 #3a1406,0 0 24px rgba(255,200,100,.5);overflow-wrap:anywhere}
 #gift .what{font-size:34px;margin-top:8px}
 #gift .what b{color:var(--gold2)}
-/* fortune card (quẻ tử vi): up in the hall between the side cards and the altar, so it never covers the seats */
-#xam{left:150px;right:150px;top:712px;z-index:5;padding:12px 26px 14px;text-align:center;border-radius:14px;border:1px solid rgba(255,217,138,.75);
-  outline:1px solid rgba(255,217,138,.35);outline-offset:-7px;
-  background:linear-gradient(180deg,rgba(150,34,20,.94),rgba(92,18,10,.94));box-shadow:0 0 34px rgba(255,170,90,.35),0 14px 34px rgba(0,0,0,.45);
+/* fortune card (quẻ xăm): up in the hall between the side cards and the altar, so it never covers the seats.
+   Horizontal: the fortune tube on the left, then label · name · "Quẻ số N · title" + level pill · the reading as a quote. */
+#xam{left:90px;right:90px;top:712px;z-index:5;display:flex;align-items:center;gap:22px;padding:18px 28px 18px 18px;border-radius:18px;
+  border:2px solid rgba(255,217,138,.7);outline:1px solid rgba(255,217,138,.25);outline-offset:-8px;
+  background:linear-gradient(100deg,rgba(96,22,14,.95),rgba(58,14,9,.93) 60%,rgba(44,12,8,.9));
+  box-shadow:0 0 34px rgba(255,170,90,.28),0 14px 34px rgba(0,0,0,.5);
   opacity:0;transform:translateY(-20px) scale(.96);transition:opacity .5s,transform .5s}
 #xam.show{opacity:1;transform:none}
-#xam .lbl{display:block;margin-bottom:4px;font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:.14em;color:var(--gold2)}
-#xam .who{font-size:23px;color:var(--muted)}
-#xam .who span{font-family:var(--display);font-weight:700;font-size:28px;color:#fff3d0;overflow-wrap:anywhere}
-#xam .poem{font-family:var(--display);font-style:italic;font-size:24px;line-height:1.4;margin:6px 0;color:#fff3d0}
-#xam .mean{font-size:20px;line-height:1.35;color:var(--fg);border-top:1px dashed rgba(255,217,138,.4);padding-top:6px}
-#xam .mean b{color:var(--gold2)}
+#xam .tube{flex:none;width:108px;height:148px}
+#xam .body{min-width:0;flex:1;text-align:left}
+#xam .lbl{font-size:19px;font-weight:500;letter-spacing:.22em;color:var(--muted)}
+#xam .who{margin-top:2px;font-family:var(--display);font-weight:700;font-size:40px;line-height:1.15;color:#fff3d0;
+  text-shadow:0 2px 0 #3a1406;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#xam .no{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:6px;font-size:23px;font-weight:600;color:var(--fg)}
+#xam .lv{padding:2px 14px;border-radius:999px;font-size:19px;font-weight:600;color:#3a1a06;background:linear-gradient(180deg,#ffe6a8,#e2b04f)}
+#xam .lv.top{background:linear-gradient(180deg,#fff3c4,#ffc94d);box-shadow:0 0 14px rgba(255,210,110,.7)}
+#xam .lv.mid{color:var(--gold2);background:rgba(0,0,0,.3);border:1px solid rgba(255,217,138,.6)}
+#xam .quote{margin-top:10px;padding-left:14px;border-left:3px solid rgba(255,217,138,.65);
+  font-family:var(--display);font-style:italic;font-size:23px;line-height:1.4;color:#f3dcb4}
 #gift .pray{font-family:var(--display);font-style:italic;font-size:31px;color:var(--fg);margin-top:14px;opacity:.95}
 /* enable sound (needed once: browsers block autoplay) */
 /* only shown when the browser blocks sound: small, bottom corner, gone after the first click anywhere */
@@ -121,7 +128,22 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
   <div id="enters" class="ui" aria-live="polite"></div>
   <div id="chant" class="ui"><h4 id="chantHead">✦ TỤNG KINH ĐỊNH KỲ ✦</h4><p id="chantText"></p></div>
   <div id="gift" class="ui"><div class="lbl">✦ HỒI HƯỚNG CÔNG ĐỨC ✦</div><div class="who" id="giftWho"></div><div class="what" id="giftWhat"></div><div class="pray" id="giftPray"></div></div>
-  <div id="xam" class="ui"><div class="lbl" id="xamNo"></div><div class="who"><span id="xamWho"></span> xin được quẻ</div><div class="poem" id="xamPoem"></div><div class="mean"><b>Lời giải:</b> <span id="xamMeaning"></span></div></div>
+  <div id="xam" class="ui">
+    <svg class="tube" viewBox="0 0 108 148" aria-hidden="true">
+      <defs><linearGradient id="xamWood" x1="0" x2="1"><stop offset="0" stop-color="#5a1d10"/><stop offset=".5" stop-color="#8a3a1c"/><stop offset="1" stop-color="#4a160c"/></linearGradient></defs>
+      <g stroke="#e2b04f" stroke-width="3.5" stroke-linecap="round"><path d="M30 62 26 10M40 62 38 4M50 62 50 12M60 62 62 2M70 62 74 8M80 62 82 16"/></g>
+      <g fill="#b23c1f"><rect x="24" y="8" width="5" height="9" rx="1" transform="rotate(-4 26 12)"/><rect x="59.5" y="1" width="5" height="9" rx="1" transform="rotate(3 62 5)"/></g>
+      <rect x="14" y="56" width="80" height="88" rx="10" fill="url(#xamWood)" stroke="#e2b04f" stroke-width="2.5"/>
+      <rect x="20" y="62" width="68" height="76" rx="6" fill="none" stroke="rgba(255,217,138,.45)" stroke-width="1.5"/>
+      <text x="54" y="114" text-anchor="middle" font-size="40" fill="#ffd98a" font-family="'Noto Serif TC','Noto Serif SC','Songti TC',serif">籤</text>
+    </svg>
+    <div class="body">
+      <div class="lbl">QUẺ XĂM CẦU AN</div>
+      <div class="who" id="xamWho"></div>
+      <div class="no"><span id="xamNo"></span><span class="lv" id="xamLevel"></span></div>
+      <div class="quote" id="xamMeaning"></div>
+    </div>
+  </div>
   <button id="unmute" hidden>🔈 Bấm để bật âm thanh</button>
   <div id="conn">đang kết nối…</div>
 </div></div>
@@ -509,10 +531,12 @@ function drawFlying(dt){
 let xamHide=null;
 function showXam(m){
   if (!m) return;
-  document.getElementById('xamNo').textContent=`✦ QUẺ SỐ ${m.no} · ${String(m.level||'').toUpperCase()} ✦`;
+  const lv=String(m.level||'');
   document.getElementById('xamWho').textContent=m.name;
-  document.getElementById('xamPoem').replaceChildren(...(m.poem||[]).map(l=>{ const d=document.createElement('div'); d.textContent=l; return d; }));
-  document.getElementById('xamMeaning').textContent=m.meaning||'';
+  document.getElementById('xamNo').textContent=`Quẻ số ${m.no}`+(m.title?` · ${m.title}`:'');
+  const lvEl=document.getElementById('xamLevel'); lvEl.textContent=lv; lvEl.hidden=!lv;
+  lvEl.className='lv'+(lv==='Thượng Thượng'?' top':lv==='Trung Bình'?' mid':'');
+  document.getElementById('xamMeaning').textContent=m.meaning?`“${m.meaning}”`:'';
   if (m.say && !m.said){ m.said=true; say(m.say); }
   const el=document.getElementById('xam'); el.classList.add('show'); clearTimeout(xamHide); xamHide=setTimeout(()=>el.classList.remove('show'), 15000);
 }
