@@ -48,16 +48,16 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
 #guide div{display:grid;grid-template-columns:38px 1fr;gap:8px;align-items:center}
 #guide i{font-style:normal;font-size:30px;line-height:1.2;text-align:center}
 #guide b{color:var(--gold2);font-weight:600}
-#merit{right:24px;top:440px;width:300px;padding:14px 18px;border-radius:20px;font-size:29px;line-height:1.25}
-#merit h3{margin:0 0 8px;font-family:var(--display);font-size:30px;color:var(--gold2);letter-spacing:.08em;text-align:center;
+#merit{right:24px;top:440px;width:340px;padding:14px 18px;border-radius:20px;font-size:36px;line-height:1.25}
+#merit h3{margin:0 0 8px;font-family:var(--display);font-size:36px;color:var(--gold2);letter-spacing:.08em;text-align:center;
   padding-bottom:6px;border-bottom:1px solid rgba(226,176,79,.35)}
 #merit ol{margin:0;padding:0;list-style:none;display:grid;gap:10px}
-#merit li{display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:center;gap:8px}
-#merit li .rk{font-size:30px;text-align:center}
+#merit li{display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;gap:8px}
+#merit li .rk{font-size:36px;text-align:center}
 #merit li .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #merit li .co{color:var(--gold2);font-variant-numeric:tabular-nums;font-weight:600}
 #merit li:first-child .nm{color:var(--gold2);font-weight:600}
-#merit .empty{display:block;color:var(--muted);text-align:center;font-size:26px}
+#merit .empty{display:block;color:var(--muted);text-align:center;font-size:32px}
 /* chant banner + gift banner */
 #chant{left:100px;right:100px;top:432px;padding:24px 34px;text-align:center;border-radius:26px;border:2px solid var(--gold);
   background:linear-gradient(180deg,rgba(52,22,9,.92),rgba(28,11,5,.92));box-shadow:0 14px 40px rgba(0,0,0,.5);
@@ -83,17 +83,17 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
   box-shadow:0 0 34px rgba(255,170,90,.28),0 14px 34px rgba(0,0,0,.5);
   opacity:0;transform:translateY(-20px) scale(.96);transition:opacity .5s,transform .5s}
 #xam.show{opacity:1;transform:none}
-#xam .tube{flex:none;width:108px;height:148px}
+#xam .tube{flex:none;width:124px;height:170px}
 #xam .body{min-width:0;flex:1;text-align:left}
-#xam .lbl{font-size:19px;font-weight:500;letter-spacing:.22em;color:var(--muted)}
-#xam .who{margin-top:2px;font-family:var(--display);font-weight:700;font-size:40px;line-height:1.15;color:#fff3d0;
+#xam .lbl{font-size:24px;font-weight:500;letter-spacing:.22em;color:var(--muted)}
+#xam .who{margin-top:2px;font-family:var(--display);font-weight:700;font-size:50px;line-height:1.15;color:#fff3d0;
   text-shadow:0 2px 0 #3a1406;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#xam .no{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:6px;font-size:23px;font-weight:600;color:var(--fg)}
-#xam .lv{padding:2px 14px;border-radius:999px;font-size:19px;font-weight:600;color:#3a1a06;background:linear-gradient(180deg,#ffe6a8,#e2b04f)}
+#xam .no{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:6px;font-size:30px;font-weight:600;color:var(--fg)}
+#xam .lv{padding:2px 16px;border-radius:999px;font-size:25px;font-weight:600;color:#3a1a06;background:linear-gradient(180deg,#ffe6a8,#e2b04f)}
 #xam .lv.top{background:linear-gradient(180deg,#fff3c4,#ffc94d);box-shadow:0 0 14px rgba(255,210,110,.7)}
 #xam .lv.mid{color:var(--gold2);background:rgba(0,0,0,.3);border:1px solid rgba(255,217,138,.6)}
 #xam .quote{margin-top:10px;padding-left:14px;border-left:3px solid rgba(255,217,138,.65);
-  font-family:var(--display);font-style:italic;font-size:23px;line-height:1.4;color:#f3dcb4}
+  font-family:var(--display);font-style:italic;font-size:30px;line-height:1.4;color:#f3dcb4}
 #gift .pray{font-family:var(--display);font-style:italic;font-size:31px;color:var(--fg);margin-top:14px;opacity:.95}
 /* enable sound (needed once: browsers block autoplay) */
 /* only shown when the browser blocks sound: small, bottom corner, gone after the first click anywhere */
@@ -837,7 +837,7 @@ function tag(text,x,y,s,style,av,maxW){
 const BUBBLE_LINES = 5;
 function bubbleLayout(b, fs){
   if (b.lay?.fs===fs && b.lay.gen===fontGen) return b.lay;
-  const maxW=fs*13, em=fs*1.3, tokens=[];
+  const maxW=fs*11, em=fs*1.3, tokens=[];
   const pushText = str => { for (const part of str.split(/(\s+)/)){ if (!part) continue;
     if (/^\s+$/.test(part)){ tokens.push({ text:' ', w:ctx.measureText(' ').width, space:true }); continue; }
     const w=ctx.measureText(part).width;
@@ -859,11 +859,17 @@ function bubbleLayout(b, fs){
     lines[L].push(dots); widths[L]+=dots.w; }
   return b.lay = { fs, gen:fontGen, em, lines, widths, w:Math.max(...widths)+fs*1.1, lh:Math.max(fs*1.35, em*1.05) };
 }
-function bubble(b,x,y,s){
-  const fs=Math.max(18,Math.round(26*s/.4)); ctx.font=`500 ${fs}px "Be Vietnam Pro","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
+function bubble(b,x,y,s,placed=[]){
+  const fs=Math.max(23,Math.round(34*s/.4)); ctx.font=`500 ${fs}px "Be Vietnam Pro","Segoe UI Emoji","Noto Color Emoji",system-ui,sans-serif`;
   const { em, lines, widths, w, lh } = bubbleLayout(b, fs), h=lines.length*lh+fs*.5;
+  const tx=x, ty=y; x=Math.min(Math.max(x, w/2+10), 1080-w/2-10);   // keep the (bigger) bubble on screen; the tail still points at the viewer
+  // neighbours talking at once: lift this bubble above any already placed (closer) one it would cover
+  for (let moved=true, n=0; moved && n<20; n++){ moved=false;
+    for (const r of placed) if (x-w/2<r.x2+6 && x+w/2>r.x1-6 && y-h<r.y2+6 && y>r.y1-6){ y=r.y1-16; moved=true; } }
+  placed.push({ x1:x-w/2, x2:x+w/2, y1:y-h, y2:y });
   ctx.fillStyle=b.hint?'rgba(110,32,12,.95)':'rgba(255,247,230,.95)'; rr(x-w/2,y-h,w,h,fs*.5); ctx.fill();   // hint: the hall talking, not the viewer
-  ctx.beginPath(); ctx.moveTo(x-8,y); ctx.lineTo(x+8,y); ctx.lineTo(x,y+10); ctx.fill();
+  if (ty>y){ ctx.save(); ctx.globalAlpha*=.7; ctx.fillRect(tx-2,y,4,ty-y); ctx.restore(); }   // lifted: a thin stem down to the viewer
+  ctx.beginPath(); ctx.moveTo(tx-8,ty); ctx.lineTo(tx+8,ty); ctx.lineTo(tx,ty+10); ctx.fill();
   ctx.fillStyle=b.hint?'#ffd98a':'#3a1a08'; ctx.textAlign='left'; ctx.textBaseline='middle';
   lines.forEach((line,i)=>{
     let cx=x-widths[i]/2; const cy=y-h+fs*.25+lh*(i+.5);
@@ -967,7 +973,7 @@ function frame(now){
     if (live && !up && (!big || shown.has(v))) bubbles.push([v.bubble, v.x, ty+8*ts/.4, ts]);   // up at the altar the tag says it all
   }
   for (const t of lateTags) tag(...t);
-  for (const b of bubbles) bubble(...b);
+  const placed=[]; for (const b of bubbles.reverse()) bubble(...b, placed);   // front row first: it keeps its spot, the ones behind make room
   // gift icons rising, petals / hearts
   for (let i=fx.length-1;i>=0;i--){ const f=fx[i]; f.t+=dt; const k=f.t/f.life; if(k>=1){ fx.splice(i,1); continue; } const pop=1-Math.pow(1-Math.min(1,f.t*4),3);
     ctx.save(); ctx.globalAlpha=k<.75?1:(1-k)/.25; sprite(A[f.kind],f.x,f.y-k*170,f.scale*(.6+.4*pop)); ctx.restore(); }
