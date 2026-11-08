@@ -27,6 +27,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cg fill='none' stroke='%23e2b04f' stroke-width='1.6' stroke-linejoin='round'%3E%3Cpath d='M20 7c3.4 3.8 4.8 8 4.8 12S23.2 27.2 20 30c-3.2-2.8-4.8-6.8-4.8-11S16.6 10.8 20 7z' fill='rgba(226,176,79,.25)'/%3E%3Cpath d='M15.4 16.2c-3.6-1.4-7.2-1.2-9.8.4 1 4.6 4.4 8.8 9.2 11 2 .9 3.4 1.5 5.2 2.1M24.6 16.2c3.6-1.4 7.2-1.2 9.8.4-1 4.6-4.4 8.8-9.2 11-2 .9-3.4 1.5-5.2 2.1'/%3E%3C/g%3E%3C/svg%3E") center/contain no-repeat;
   filter:drop-shadow(0 0 10px rgba(255,200,100,.45))}
 #plaque[hidden]{display:none}
+#merit[hidden]{display:none}
 #plaque::before{left:34px}#plaque::after{right:34px}
 #title{font-family:var(--display);font-weight:700;font-size:60px;line-height:1.1;letter-spacing:.07em;text-transform:uppercase;
   background:linear-gradient(180deg,#fff1c4 0%,#ffd98a 45%,#c98a2c 100%);-webkit-background-clip:text;background-clip:text;color:transparent;
@@ -763,6 +764,7 @@ function applySettings(){
   document.getElementById('title').textContent=settings.title||'Chánh Điện Tịnh Tâm'; fitTitle();
   document.getElementById('subtitle').textContent=settings.subtitle||'Nam Mô A Di Đà Phật';
   document.getElementById('plaque').hidden = settings.showPlaque === false;
+  document.getElementById('merit').hidden = settings.showMerit === false;
   document.getElementById('meritTitle').textContent = '✦ ' + (settings.meritTitle || 'Ghi Danh') + ' ✦';
   SCENE_OPTS.bgAltar = settings.bgAltar !== false; renderGuide();
   duck(voicePlaying); scheduleMo();

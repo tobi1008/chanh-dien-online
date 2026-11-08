@@ -33,6 +33,7 @@ const settings = {
   subtitle: 'Nam Mô A Di Đà Phật',
   showPlaque: true,                  // the name board at the top of the overlay (title + subtitle)
   meritTitle: 'Ghi Danh',            // heading of the givers' board on the right
+  showMerit: true,                   // show the "Ghi Danh" givers' board on the right of the overlay
   music: true, mo: true, moBpm: 52,
   autoChant: true, chantEveryMin: 3,
   showEnter: true,                   // overlay shows "<avatar> <name> vừa vào" for everyone entering the live
@@ -698,7 +699,7 @@ function onControl(m){
 const SETTING_RULES = {
   title: v => String(v).slice(0, 40), subtitle: v => String(v).slice(0, 60), meritTitle: v => String(v).trim().slice(0, 20) || 'Ghi Danh',
   moBpm: v => clamp(v, 20, 120), chantEveryMin: v => clamp(v, 1, 60),
-  music: Boolean, mo: Boolean, showPlaque: Boolean, autoChant: Boolean, showEnter: Boolean, syncViewers: Boolean,
+  music: Boolean, mo: Boolean, showPlaque: Boolean, showMerit: Boolean, autoChant: Boolean, showEnter: Boolean, syncViewers: Boolean,
   prayerFromChat: Boolean, filterOn: Boolean, xamOn: Boolean,
   filterMode: v => v === 'mask' ? 'mask' : 'hide', filterStrikes: v => clamp(v, 0, 20), filterExtra: v => String(v).slice(0, 3000),
   audioOut: v => String(v).slice(0, 120),
