@@ -49,7 +49,18 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
 #guide div{display:grid;grid-template-columns:38px 1fr;gap:8px;align-items:center}
 #guide i{font-style:normal;font-size:30px;line-height:1.2;text-align:center}
 #guide b{color:var(--gold2);font-weight:600}
-#merit{right:24px;top:440px;width:340px;padding:14px 18px;border-radius:20px;font-size:36px;line-height:1.25}
+/* right column: the house rules board (Nội Quy), the givers' board under it */
+#side{right:24px;top:440px;width:360px;display:flex;flex-direction:column;gap:18px}
+#side[hidden],#rules[hidden]{display:none}
+#rules{padding:16px 22px 20px;border-radius:8px;background:linear-gradient(180deg,rgba(28,17,9,.94),rgba(13,8,4,.94));border:3px solid #c9a052;
+  box-shadow:0 0 0 2px rgba(0,0,0,.55),inset 0 0 0 5px rgba(13,8,4,.9),inset 0 0 0 6.5px rgba(201,160,82,.55),0 14px 34px rgba(0,0,0,.5)}
+#rules h3{margin:0 0 12px;padding:2px 0 10px;text-align:center;font-family:var(--display);font-weight:700;font-size:46px;line-height:1.1;letter-spacing:.12em;text-transform:uppercase;
+  background:linear-gradient(180deg,#fff1c4,#ffd98a 45%,#c98a2c);-webkit-background-clip:text;background-clip:text;color:transparent;
+  border-bottom:2px solid rgba(201,160,82,.5);overflow-wrap:anywhere}
+#rules ul{margin:0;padding:0;list-style:none;display:grid;gap:12px}
+#rules li{position:relative;padding-left:26px;font-size:29px;line-height:1.3;color:#f6ead2;overflow-wrap:anywhere}
+#rules li::before{content:"";position:absolute;left:3px;top:.5em;width:10px;height:10px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px rgba(226,176,79,.7)}
+#merit{padding:14px 18px;border-radius:20px;font-size:36px;line-height:1.25}
 #merit h3{margin:0 0 8px;font-family:var(--display);font-size:36px;color:var(--gold2);letter-spacing:.08em;text-align:center;
   padding-bottom:6px;border-bottom:1px solid rgba(226,176,79,.35)}
 #merit ol{margin:0;padding:0;list-style:none;display:grid;gap:10px}
@@ -121,11 +132,14 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
   <canvas id="c" width="1080" height="1920"></canvas>
   <div id="plaque" class="ui"><div id="title">Chánh Điện Tịnh Tâm</div><div id="subtitle">Nam Mô A Di Đà Phật</div></div>
   <div id="pills" class="ui">
-    <div class="pill"><span class="dot"></span><span id="count">0</span><small>đang<br>thiền</small></div>
+    <div class="pill"><span class="dot"></span><span id="count">0</span><small id="countLbl">đang<br>lễ Phật</small></div>
     <div class="pill">⏱ <span id="timer">00:00:00</span></div>
   </div>
   <div id="guide" class="card ui"></div>
-  <div id="merit" class="card ui"><h3 id="meritTitle">✦ Ghi Danh ✦</h3><ol id="meritList"><li class="empty">Chưa có</li></ol></div>
+  <div id="side" class="ui">
+    <div id="rules"><h3 id="rulesTitle">Nội Quy</h3><ul id="rulesList"></ul></div>
+    <div id="merit" class="card"><h3 id="meritTitle">✦ Ghi Danh ✦</h3><ol id="meritList"><li class="empty">Chưa có</li></ol></div>
+  </div>
   <div id="enters" class="ui" aria-live="polite"></div>
   <div id="chant" class="ui"><h4 id="chantHead">✦ TỤNG KINH ĐỊNH KỲ ✦</h4><p id="chantText"></p></div>
   <div id="gift" class="ui"><div class="lbl">✦ HỒI HƯỚNG CÔNG ĐỨC ✦</div><div class="who" id="giftWho"></div><div class="what" id="giftWhat"></div><div class="pray" id="giftPray"></div></div>
@@ -150,6 +164,7 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:var(-
 </div></div>
 
 <script src="/live/scenes.js"></script>
+<script src="/live/people.js"></script>
 <script>
 /* ======================= stage fit ======================= */
 const stage = document.getElementById('stage');
@@ -162,51 +177,188 @@ const IMG = { hall:'/assets/hall.jpg', bamboo:'/assets/bamboo.jpg', buddha:'/ass
   woman:'/assets/c_woman.png', child:'/assets/c_child.png', anim_man:'/assets/anim_man.png', anim_woman:'/assets/anim_woman.png', anim_granny:'/assets/anim_granny.png',
   lotus:'/assets/fx_lotus.png', halo:'/assets/fx_halo.png', bell:'/assets/fx_bell.png', incense:'/assets/fx_incense.png', petal:'/assets/fx_petal.png' };
 for (const [k,src] of Object.entries(IMG)){ const im=new Image(); im.src=src; A[k]=im; }
+// sprites of the seat hall: walking (0-3) → standing on the cushion (4) → sitting down (5-6) → seated (7)
 const ANIM = { man:{fw:212,fh:300,seatH:210}, woman:{fw:212,fh:300,seatH:220}, granny:{fw:195,fh:300,seatH:222} };
-const hasAnim = k => ANIM[k] && A['anim_'+k]?.naturalWidth > 0;
 const avatars = new Map();
 function avatar(url){ if(!url) return null; let im=avatars.get(url); if(!im && avatars.size>400) avatars.clear(); if(!im){ im=new Image(); im.referrerPolicy='no-referrer'; im.src=url; avatars.set(url,im); } return im.naturalWidth?im:null; }
 
-/* ======================= seats ======================= */
-// Floor trapezoid in the painting: back row just below the altar, front row near the bottom.
-const FLOOR = { yTop: 1215, yBot: 1845, halfTop: 290, halfBot: 430 };
-const GRID = { 24:[6,4], 36:[6,6], 64:[8,8], 100:[10,10] };
-// Past 100 there is no limit: keep the floor's ~1.6:1 shape and pack more, smaller rows.
-function gridFor(c){ if (GRID[c]) return GRID[c]; const cols=Math.ceil(Math.sqrt(c*1.6)); return [cols, Math.ceil(c/cols)]; }
+/* ======================= two halls ======================= */
+// settings.mode 'line' (default): 3D people standing in lines (below). 'seat': the original hall, the sprites walk in and
+// sit on cushions in rows (further down, "seat hall"). Both share the visitors, the altar, the effects and the HUD;
+// layout(), reseat(), addVisitor() and the per-person update in frame() pick the hall's own version.
+const SEAT = () => settings.mode === 'seat';
+let hallMode = '';                    // the hall the people are laid out for: switching moves everyone to their new place
+
+/* ======================= lines (xếp hàng) ======================= */
+// Viewers stand in lines facing the altar, seen from behind (people drawn by live/people.js): the head of every line just
+// below the altar, the lines running down towards the camera. A newcomer walks up the aisle and joins the end of the
+// shortest line (middle lines first). Someone leaving only moves the people behind them in that line one step forward.
+// Going up to the altar keeps your place in line.
+// settings.lines: number of lines (0 = by crowd size) · settings.peopleSize: % size of the people (to suit the backdrop).
+const FLOOR = { yTop: 1300, yBot: 1890, halfTop: 300, halfBot: 410 };   // a clear space in front of the altar (ALTAR.y) for whoever goes up
 const BIG = () => cap > 100;          // crowded hall: only show name tags of people doing something right now
-let cap = 24, seats = [];
+let cap = 24, cols = 5, rows = 5, colK = 1, lines = [], rowY = [], laidOut = '';
+const sizeK = () => Math.max(.6, Math.min(1.6, (settings.peopleSize || 100)/100));
+function colsFor(c){ const want = settings.lines|0; if (want >= 2) return Math.min(12, want); return c <= 64 ? 5 : c <= 100 ? 7 : Math.min(12, Math.ceil(c/15)); }
+// size of a person standing at y (1 = 300 px tall): smaller far away, near the altar; smaller with many lines
+function scaleAt(y){ const t = Math.max(-.4, Math.min(1.25, (y-FLOOR.yTop)/(FLOOR.yBot-FLOOR.yTop))); return (.46 + .44*t)*colK*sizeK(); }
+const halfAt = y => FLOOR.halfTop + (FLOOR.halfBot-FLOOR.halfTop)*(y-FLOOR.yTop)/(FLOOR.yBot-FLOOR.yTop);
+const lineU = k => cols === 1 ? 0 : k/(cols-1)*2 - 1;
+const lineX = (k, y) => 540 + lineU(k)*halfAt(y);
+const lineGap = y => cols === 1 ? 300 : 2*halfAt(y)/(cols-1);
+// the aisle beside line k (its right side; the last line uses its left): the way in, and the way up to the altar
+const aisleX = (k, y) => { const d = cols === 1 ? .35 : 1/(cols-1); return 540 + (lineU(k) + (k === cols-1 && cols > 1 ? -d : d))*halfAt(y); };
 function layout(c){
-  cap = c; const [cols, rows] = gridFor(c); seats = [];
-  for (let r=0;r<rows;r++){
-    const t = rows===1 ? .5 : r/(rows-1);                     // 0 = back row
-    const y = FLOOR.yTop + (FLOOR.yBot-FLOOR.yTop)*t;
-    const half = FLOOR.halfTop + (FLOOR.halfBot-FLOOR.halfTop)*t;
-    const scale = (.26 + .24*t) * (6/cols) ** .75;
-    const gap = 2*half/(cols-1) * .93;                        // room for one name tag
-    for (let k=0;k<cols;k++){
-      let u = (k-(cols-1)/2)/((cols-1)/2); u = Math.sign(u)*(.14 + .86*Math.abs(u));   // open a centre aisle
-      seats.push({ x: 540 + u*half, y, scale, r, k, rows, gap });
-    }
+  if (hallMode !== settings.mode){                                     // other hall: everyone takes their place in it at once
+    const all = [...visitors.keys()]; hallMode = settings.mode; lines = []; cols = 0; order = SEAT() ? all : [];
+    if (!SEAT()){ const n = colsFor(c); cols = n; lines = Array.from({ length:n }, () => []); }
+    if (SEAT()) seatLayout(c); else { lineLayout(c); for (const id of all) joinLine(id); }
+    reseat(); altarBusy.fill(null);
+    for (const v of visitors.values()){ v.state = 'sit'; v.frame = 7; v.path = null; v.stepping = false; if (v.seat){ v.x = v.seat.x; v.y = v.seat.y; } }
+    return;
   }
-  // fill front rows first, aisle side first, so a small crowd still looks full on camera
-  seats.sort((a,b)=> (b.r-a.r) || (Math.abs(a.x-540)-Math.abs(b.x-540)));
+  if (SEAT()) seatLayout(c); else lineLayout(c);
+}
+function lineLayout(c){
+  const n = colsFor(c); cap = c; colK = (5/n)**.75; rows = Math.ceil(c/n); laidOut = `${settings.lines|0}|${sizeK()}`;
+  // rows spread over the whole floor (closer together far away, as in perspective): a short line shows each person from
+  // the head to the waist, a long one packs them until only heads and name tags show, like a real queue
+  rowY = []; for (let r = 0, y = FLOOR.yTop; r < rows; r++){ rowY.push(y); y += scaleAt(y)*300*.3; }
+  const span = rowY.at(-1) - FLOOR.yTop, room = FLOOR.yBot - FLOOR.yTop;
+  if (span > 0) rowY = rowY.map(y => FLOOR.yTop + (y-FLOOR.yTop)*Math.min(4, room/span));
+  if (n !== cols || lines.length !== n){                                 // new number of lines: everyone lines up again, front first
+    const all = []; for (let p = 0; ; p++){ let any = false; for (const l of lines) if (l[p] != null){ all.push(l[p]); any = true; } if (!any) break; }
+    cols = n; lines = Array.from({ length:n }, () => []); for (const id of all) joinLine(id);
+  }
   reseat();
 }
 const visitors = new Map();  // id -> visitor
-let order = [];               // ids in seating order
-function reseat(){
-  order = order.filter(id => visitors.has(id));
-  order.forEach((id,i) => { const v = visitors.get(id), s = seats[i]; if (!v || !s) return; v.seat = s; if (v.state==='sit') { v.tx = s.x; v.ty = s.y; } });
+function joinLine(id){
+  let best = 0;
+  for (let k = 1; k < cols; k++){ const a = lines[k].length, b = lines[best].length; if (a < b || (a === b && Math.abs(lineU(k)) < Math.abs(lineU(best)))) best = k; }
+  lines[best].push(id);
 }
-
+function slot(k, p){ const y = p < rowY.length ? rowY[p] : rowY.at(-1) + (p-rowY.length+1)*20; return { x: lineX(k, y), y, scale: scaleAt(y), line: k, pos: p }; }
+function reseat(){ if (SEAT()) seatReseat(); else lineReseat(); }
+function lineReseat(){
+  lines = lines.map(l => l.filter(id => visitors.has(id)));
+  lines.forEach((l, k) => l.forEach((id, p) => { visitors.get(id).seat = slot(k, p); }));
+}
 
 function addVisitor(p, instant){
   if (visitors.has(p.id)) { Object.assign(visitors.get(p.id), { name:p.name, skin:p.skin, avatar:p.avatar, coins:p.coins }); return; }
-  const v = { ...p, state:'walk', x:540, y:2020, tx:0, ty:0, frame:0, ft:0, sitT:0, flip:false, fade:0, bubble:null, glow:0, bow:0, phase:Math.random()*6.28, hotUntil:performance.now()+8000 };
-  visitors.set(p.id, v); order.push(p.id); reseat();
-  if (instant || !hasAnim(v.skin) || !v.seat){ v.state='sit'; v.frame=7; v.x=v.tx=v.seat?.x||540; v.y=v.ty=v.seat?.y||1500; v.fade = instant?1:0; }
+  const v = { ...p, state:'walk', x:540, y:2040, frame:0, ft:0, flip:false, fade:0, bubble:null, glow:0, bow:0, phase:Math.random()*6.28, hotUntil:performance.now()+8000 };
+  if (SEAT()){                                                          // walks up the centre aisle, then along the row to the cushion
+    visitors.set(p.id, v); order.push(p.id); reseat();
+    if (instant || !hasAnim(seatSkin(v)) || !v.seat){ v.state='sit'; v.frame=7; v.x=v.seat?.x||540; v.y=v.seat?.y||1500; v.fade = instant?1:0; }
+    return;
+  }
+  visitors.set(p.id, v); joinLine(p.id); reseat();
+  if (instant || !v.seat){ v.state='sit'; v.x=v.seat?.x||540; v.y=v.seat?.y||1500; v.fade = instant?1:0; return; }
+  const k = v.seat.line; v.x = aisleX(k, 2040); v.path = [{ x: aisleX(k, v.seat.y), y: v.seat.y }];   // then steps sideways into place
 }
 function removeVisitor(id){ visitors.delete(id); reseat(); }
+
+/* ======================= seat hall (ngồi bồ đoàn) ======================= */
+// The original hall: rows of cushions on the floor, back row just below the altar, a centre aisle. Front rows fill first,
+// aisle side first, so a small crowd still looks full on camera. Seated people carry no name tag, only comment bubbles.
+const SFLOOR = { yTop: 1215, yBot: 1845, halfTop: 290, halfBot: 430 };
+const GRID = { 24:[6,4], 36:[6,6], 64:[8,8], 100:[10,10] };
+// Past 100 there is no limit: keep the floor's ~1.6:1 shape and pack more, smaller rows.
+function gridFor(c){ if (GRID[c]) return GRID[c]; const n=Math.ceil(Math.sqrt(c*1.6)); return [n, Math.ceil(c/n)]; }
+let seats = [], order = [];           // order: ids in seating order
+function seatLayout(c){
+  cap = c; laidOut = `${settings.lines|0}|${sizeK()}`; const [n, rws] = gridFor(c); seats = [];
+  for (let r=0;r<rws;r++){
+    const t = rws===1 ? .5 : r/(rws-1);                       // 0 = back row
+    const y = SFLOOR.yTop + (SFLOOR.yBot-SFLOOR.yTop)*t;
+    const half = SFLOOR.halfTop + (SFLOOR.halfBot-SFLOOR.halfTop)*t;
+    const scale = (.26 + .24*t) * (6/n) ** .75;
+    for (let k=0;k<n;k++){
+      let u = (k-(n-1)/2)/((n-1)/2); u = Math.sign(u)*(.14 + .86*Math.abs(u));   // open a centre aisle
+      seats.push({ x: 540 + u*half, y, scale, r, k });
+    }
+  }
+  seats.sort((a,b)=> (b.r-a.r) || (Math.abs(a.x-540)-Math.abs(b.x-540)));
+  reseat();
+}
+function seatReseat(){
+  order = order.filter(id => visitors.has(id));
+  order.forEach((id,i) => { const v = visitors.get(id), st = seats[i]; if (v && st) v.seat = st; });
+}
+// the seat hall has sprites for its own seven people: the 3D-only ones and uploaded pictures borrow a look
+function seatSkin(v){
+  if (v.skin === 'lady') return 'woman';
+  if (String(v.skin).startsWith('up:')){ outfitOf(v); return v.hash % 2 ? 'woman' : 'man'; }
+  return v.skin;
+}
+const hasAnim = k => ANIM[k] && A['anim_'+k]?.naturalWidth > 0;
+const kneelFrame = t => t < .4 ? 4 : t < .75 ? 5 : t < 5.1 ? 6 : t < 5.45 ? 5 : 4;
+// settings.seatOutfits: robes the seat hall's sprites wear (live/scenes.js recolours them); granny and monks keep theirs
+const KEEP_ROBE = new Set(['granny','monk','master']);
+function look(img, v, sk){
+  if (KEEP_ROBE.has(sk)) return img;
+  const list = settings.seatOutfits?.length ? settings.seatOutfits : ['lam'];
+  outfitOf(v); return outfitImg(img, list[v.hash % list.length]);
+}
+// prayer mats under every taken seat (painted scenes only), drawn before anyone sits on them
+function drawCushions(k){
+  if (!SEAT()) return;
+  for (const [s, a] of scenePrev ? [[scenePrev, 1-k], [scene, k]] : [[scene, 1]]){
+    if (!s.cushion || a <= 0) continue;
+    for (let i = 0; i < order.length && i < seats.length; i++){ const st = seats[i]; sceneCushion(ctx, s, st.x, st.y, st.scale/.4, a); }
+  }
+}
+// one person in the seat hall: move, animate and draw (the original hall's code); tags and bubbles go to the lists
+function seatVisitor(v, dt, now, t, big, shown, bubbles, lateTags){
+  const sk=seatSkin(v), anim=hasAnim(sk), s=v.seat?.scale||.4;
+  if (v.state==='toAltar'){ if (follow(v,dt)){ v.state='offer'; v.offerT=0; v.flip=false; v.frame=4; if (v.gift) zoomTo(v); } }
+  else if (v.state==='offer'){
+    const was=v.offerT, kneel=v.offerKind==='bow'; v.offerT+=dt; v.frame = kneel ? kneelFrame(v.offerT) : 4;
+    for (const b of kneel ? KNEEL_BOWS : [.5,1.6,2.7]) if (was<b && v.offerT>=b) v.bow=1;
+    if (!v.planted && v.offerT>=(kneel ? KNEEL_AT : PLANT_AT)){ v.planted=true; plantIncense(v); }
+    if (v.offerT>=(kneel ? KNEEL_T : OFFER_T)){ v.state='back'; v.path=[{ x:540, y:ALTAR.y+40 }, { x:540, y:v.seat.y }, { x:v.seat.x, y:v.seat.y }]; altarBusy[v.spot]=null;
+      if (v.pendingXam){ const x=v.pendingXam; v.pendingXam=null; setTimeout(()=>queueIncense(v.id,'xam',true,x), 1500); } }
+  }
+  else if (v.state==='back'){ if (follow(v,dt)){ v.flip=false; if (anim){ v.state='sitting'; v.sitT=0; } else { v.state='sit'; v.frame=7; } } }
+  else if (v.state==='walk' && v.seat){
+    const depth=(v.y-SFLOOR.yTop)/(SFLOOR.yBot-SFLOOR.yTop), sp=(170+190*Math.max(0,Math.min(1.5,depth)))*dt, dx=v.seat.x-v.x, dy=v.seat.y-v.y;
+    if (Math.abs(dy)>3){ v.y+=Math.max(-sp,Math.min(sp,dy)); v.x+=(540-v.x)*Math.min(1,dt*6); v.flip=false; } else { v.x+=Math.max(-sp,Math.min(sp,dx)); v.flip=dx<0; }
+    v.ft+=dt; if (v.ft>.15){ v.ft=0; v.frame=(v.frame+1)%4; }
+    if (Math.abs(v.x-v.seat.x)<2 && Math.abs(v.y-v.seat.y)<3){ v.x=v.seat.x; v.y=v.seat.y; v.state='sitting'; v.sitT=0; v.flip=false; }
+  } else if (v.state==='sitting'){ v.sitT+=dt; v.frame=4+Math.min(3,Math.floor(v.sitT/.22)); if (v.sitT>.9){ v.state='sit'; v.frame=7; } }
+  else if (v.seat){ v.x+=(v.seat.x-v.x)*Math.min(1,dt*3); v.y+=(v.seat.y-v.y)*Math.min(1,dt*3); }      // glide when the grid grows
+  v.fade=Math.min(1,v.fade+dt*2); v.glow=Math.max(0,v.glow-dt*.45); v.bow=Math.max(0,v.bow-dt*.7);
+  const moving = v.state==='walk'||v.state==='toAltar'||v.state==='offer'||v.state==='back';
+  const ws = v.state==='offer' || (v.state!=='walk' && moving && v.y<SFLOOR.yTop) ? .36 : moving ? (.26+.26*Math.max(0,Math.min(1,(v.y-SFLOOR.yTop)/(SFLOOR.yBot-SFLOOR.yTop)))) * ((6/gridFor(cap)[0])**.7) : s;
+  if (v.glow>0 || v.skin==='master'){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=Math.max(v.glow*.75, v.skin==='master'?.35+.1*Math.sin(t*1.6):0);
+    const g=ctx.createRadialGradient(v.x,v.y-110*ws,8,v.x,v.y-110*ws,200*ws); g.addColorStop(0,'rgba(255,205,120,.95)'); g.addColorStop(1,'rgba(255,160,60,0)'); ctx.fillStyle=g; ctx.fillRect(v.x-230*ws,v.y-340*ws,460*ws,400*ws); ctx.restore(); }
+  const breathe = v.state==='sit' ? Math.sin(t*1.1+v.phase)*2*ws : 0, kneeling = v.state==='offer' && v.offerKind==='bow',
+    bowK = v.state==='sit' ? Math.sin(Math.min(1,v.bow)*Math.PI)*.04 : v.state==='offer' && !(kneeling && anim) ? Math.sin(Math.min(1,v.bow)*Math.PI)*(kneeling?.24:.12) : 0;
+  ctx.save(); ctx.globalAlpha=v.fade; ctx.translate(v.x,v.y); if (bowK) ctx.transform(1,0,0,1-bowK,0,0);
+  let topY;
+  if (anim){ const a=ANIM[sk], k=ws*1.05*260/a.seatH, im=look(A['anim_'+sk], v, sk), fx=v.frame*a.fw; if (v.flip) ctx.scale(-1,1);
+    const lb = kneeling && v.frame===6 ? kneelBow(v.offerT) : 0;
+    if (lb){                                    // seen from behind, a bow lowers the back and head: the body above the hips shrinks down onto them
+      const hip=a.fh*.7, up=hip*(1-.55*lb), y0=-a.fh*k;
+      ctx.drawImage(im, fx,hip,a.fw,a.fh-hip, -a.fw*k/2, y0+hip*k, a.fw*k, (a.fh-hip)*k);
+      ctx.drawImage(im, fx,0,a.fw,hip, -a.fw*k/2, y0+(hip-up)*k, a.fw*k, up*k);
+    } else ctx.drawImage(im, fx,0,a.fw,a.fh, -a.fw*k/2, -a.fh*k+breathe, a.fw*k, a.fh*k);
+    topY=(v.state==='sit' || (kneeling && v.frame>=5) ? a.seatH : a.fh*.97)*k; }
+  else { const sp = sk==='master'?'monk':sk; sprite(look(A[sp]||A.man, v, sk),0,breathe,ws*1.05); topY=260*ws; }
+  ctx.restore();
+  if (v.state==='offer' && !v.planted && v.offerKind!=='bow'){                       // incense (or a lotus) held up in both hands
+    const lift=Math.min(1,v.offerT*3), bob=Math.sin(Math.min(1,v.bow)*Math.PI)*28*ws;
+    ctx.save(); ctx.globalAlpha=lift;
+    if (v.offerKind==='xam') drawTube(v.x, v.y-topY*.5+bob, ws*2.1, v.offerT>.8 ? Math.sin(t*24)*.16 : 0);
+    else sprite(v.offerKind==='flower'?A.lotus:A.incense, v.x, v.y-topY*.62+bob, ws*.55);
+    ctx.restore(); }
+  const ty=v.y-topY-14*ws/.4, live = v.bubble && now<v.bubble.until, up = v.state==='toAltar' || v.state==='offer';
+  if (!live) v.bubble=null;
+  const ts = big ? Math.max(ws,.3) : ws;
+  if (up) lateTags.push([`${v.name} · ${OFFER_WORD[v.offerKind]||'dâng hương'}`, v.x, ty-(v.state==='offer' && v.spot===1 ? 44 : 0), Math.max(ts,.34), 'gold', avatar(v.avatar), 0]);
+  if (live && !up && (!big || shown.has(v))) bubbles.push([v.bubble, v.x, ty+8*ts/.4, ts]);
+}
 
 /* ======================= thắp nhang ======================= */
 // A viewer who comments "dâng hương" / "thắp nhang" (or "dâng hoa") gets up, walks to the centre aisle and up to the altar,
@@ -219,10 +371,10 @@ function removeVisitor(id){ visitors.delete(id); reseat(); }
 const ALTAR = { y: 1175, spots: [445, 635], censerX: 540, censerY: 968 };
 const altarBusy = [null, null], incenseQ = [], sticks = [];   // incenseQ: { id, kind:'incense'|'flower'|'xam', gift, xam } · sticks: offerings on the altar
 const OFFER_T = 4.6, PLANT_AT = 3.9;
-// "lạy" / "vái" (kind 'bow'): kneel on the mat (sprite frames 4 stand → 5 going down → 6 kneeling), three full bows with the
+// "lạy" / "vái" (kind 'bow'): kneel down in front of the altar, three full bows with the
 // upper body lowered towards the altar, light up the hall after the last one, get up and walk back.
 const KNEEL_T = 6, KNEEL_AT = 4.8, KNEEL_BOWS = [1.2, 2.4, 3.6], KNEEL_BOW_LEN = 1;
-const kneelFrame = t => t < .4 ? 4 : t < .75 ? 5 : t < 5.1 ? 6 : t < 5.45 ? 5 : 4;
+const kneeling = t => t >= .4 && t < 5.45;
 function kneelBow(t){ for (const b of KNEEL_BOWS) if (t >= b && t < b+KNEEL_BOW_LEN) return Math.sin((t-b)/KNEEL_BOW_LEN*Math.PI); return 0; }
 const isFlower = name => /rose|flower|bouquet|tulip|lotus|daisy|hoa|bông|\bsen\b/i.test(name || '');
 function queueIncense(id, kind = 'incense', gift = false, xam = null){
@@ -249,9 +401,11 @@ function startIncense(){
     let v; while (incenseQ.length && !(v = visitors.get(incenseQ[0].id))?.seat){ const gone=incenseQ.shift(); if (gone.xam) showXam(gone.xam); }   // left: still show their fortune
     if (!incenseQ.length) return;
     const e = incenseQ.shift();
-    if (v.state === 'walk'){ v.x = v.seat.x; v.y = v.seat.y; }                         // still walking in: skip to the seat
+    if (v.state === 'walk'){ v.x = v.seat.x; v.y = v.seat.y; }                         // still walking in: skip to their place
     altarBusy[i] = v.id; v.spot = i; v.state = 'toAltar'; v.planted = false; v.offerKind = e.kind; v.gift = e.gift; v.xam = e.xam;
-    v.path = [{ x:540, y:v.y }, { x:540, y:ALTAR.y + 40 }, { x:ALTAR.spots[i], y:ALTAR.y }];
+    const k = v.seat.line;                                                             // out to the aisle, up it, across to the spot
+    if (SEAT()) v.path = [{ x:540, y:v.y }, { x:540, y:ALTAR.y + 40 }, { x:ALTAR.spots[i], y:ALTAR.y }];   // the centre aisle
+    else v.path = [{ x:aisleX(k, v.y), y:v.y }, { x:aisleX(k, ALTAR.y + 40), y:ALTAR.y + 40 }, { x:ALTAR.spots[i], y:ALTAR.y }];
   }
 }
 // walks along v.path; true once the last point is reached
@@ -285,22 +439,11 @@ function drawScene(dt, t){
   }
   return k;
 }
-// prayer mats under every taken seat (painted scenes only), drawn before anyone sits on them
-function drawCushions(k){
-  for (const [s, a] of scenePrev ? [[scenePrev, 1-k], [scene, k]] : [[scene, 1]]){
-    if (!s.cushion || a <= 0) continue;
-    for (let i = 0; i < order.length && i < seats.length; i++){ const st = seats[i]; sceneCushion(ctx, s, st.x, st.y, st.scale/.4, a); }
-  }
-}
-
-// settings.outfits: the robes viewers wear (live/scenes.js recolours the sprites). Each viewer keeps one, picked from their
-// id. The granny's brown robe and grey hair, and the monks' robes, stay as painted.
-const KEEP_ROBE = new Set(['granny','monk','master']);
-function look(img, v){
-  if (KEEP_ROBE.has(v.skin)) return img;
-  const list = settings.outfits?.length ? settings.outfits : ['lam'];
+// settings.outfits: the áo dài colours women wear (live/people.js). Each viewer keeps one, picked from their id.
+function outfitOf(v){
+  const list = settings.outfits?.length ? settings.outfits : ['tim','hong','la','troi'];
   if (v.hash == null){ let h = 0; for (const ch of String(v.id)) h = (h*31 + ch.charCodeAt(0)) >>> 0; v.hash = h; }
-  return outfitImg(img, list[v.hash % list.length]);
+  return list[v.hash % list.length];
 }
 
 /* ======================= HUD ======================= */
@@ -312,6 +455,13 @@ function renderGuide(){
     const d=document.createElement('div'), i=document.createElement('i'), sp=document.createElement('span'); i.textContent=r.icon||'';
     String(r.text||'').split('*').forEach((part,k) => { if (!part) return; if (k%2){ const b=document.createElement('b'); b.textContent=part; sp.append(b); } else sp.append(part); });
     d.append(i, sp); return d; }));
+}
+// settings.rules: the house rules board, one rule per line (settings.rulesTitle on top)
+function renderRules(){
+  const rows = String(settings.rules ?? '').split('\n').map(r => r.trim()).filter(Boolean).slice(0, 8);
+  document.getElementById('rules').hidden = settings.showRules === false || !rows.length;
+  document.getElementById('rulesTitle').textContent = settings.rulesTitle || 'Nội Quy';
+  document.getElementById('rulesList').replaceChildren(...rows.map(r => { const li = document.createElement('li'); li.textContent = r; return li; }));
 }
 function updateCount(){ document.getElementById('count').textContent = visitors.size.toLocaleString('vi-VN'); }
 let meritTop = [];                  // top 5 from the server, kept even after those people leave the hall
@@ -719,7 +869,7 @@ function drawChariot(dt, now){
   if (moving) emitSparks(x+(Math.random()-.5)*R*2.4, y+R*2.4, 5, 90, L.sparks, true, -160);
   if (C.t < .05) emitSparks(x, y, 40, 500, L.sparks, true);
 }
-function hearts(v,n){ for (let i=0;i<Math.min(6,n);i++) petals.push({x:v.x+(Math.random()-.5)*60, y:v.y-140*(v.seat?.scale||.4), vx:(Math.random()-.5)*20, vy:-(50+Math.random()*40), t:0, life:1.6, s:.08, heart:true}); }
+function hearts(v,n){ for (let i=0;i<Math.min(6,n);i++) petals.push({x:v.x+(Math.random()-.5)*60, y:v.y-(SEAT() ? 140*(v.seat?.scale||.4) : 300*scaleAt(v.y)), vx:(Math.random()-.5)*20, vy:-(50+Math.random()*40), t:0, life:1.6, s:.08, heart:true}); }
 
 /* ======================= server link ======================= */
 let ws=null;
@@ -738,16 +888,17 @@ function connect(){
         playingSeq = musicEl && !musicEl.ended && m.track===playingTrack ? m.musicSeq : -1;
         curTrack=m.track||''; curSeq=m.musicSeq; for (const f of m.bgs||[]) customScene(f);   // start loading uploaded backgrounds
         Object.assign(settings,m.settings); applySettings(); startedAt=m.startedAt;
-        visitors.clear(); order=[]; layout(m.cap); for (const p of m.viewers) addVisitor(p,true); updateCount(); meritTop=m.merit||[]; renderMerit(); playMusic(); break;
+        visitors.clear(); lines=[]; order=[]; layout(m.cap); for (const p of m.viewers) addVisitor(p,true); updateCount(); meritTop=m.merit||[]; renderMerit(); playMusic(); break;
       case 'track': curTrack=m.track; curSeq=m.seq; playMusic(); break;
       case 'bgs': for (const f of m.bgs) customScene(f); break;
-      case 'settings': Object.assign(settings,m.settings); applySettings(); if (m.cap!==cap){ layout(m.cap); updateCount(); } break;
+      case 'settings': Object.assign(settings,m.settings); applySettings(); if (m.cap!==cap || hallMode!==settings.mode || laidOut!==`${settings.lines|0}|${sizeK()}`){ layout(m.cap); updateCount(); } break;
       case 'join': if (m.cap!==cap) layout(m.cap); addVisitor(m.v); updateCount(); break;
       case 'leave': removeVisitor(m.id); updateCount(); break;
       case 'incense': queueIncense(m.id, ['flower','bow'].includes(m.kind) ? m.kind : 'incense'); break;
       case 'hint': { const v=visitors.get(m.id); if(v) v.bubble={text:m.text, emotes:[], hint:true, until:performance.now()+7000}; } break;
       case 'xam': { const v=visitors.get(m.id); if (v?.seat) queueIncense(m.id,'xam',true,m); else showXam(m); } break;
-      case 'skin': { const v=visitors.get(m.id); if(v){ v.skin=m.skin; v.glow=.8; if(v.state!=='sit'){ v.state='sit'; v.frame=7; } } } break;
+      case 'skin': { const v=visitors.get(m.id); if(v){ v.skin=m.skin; v.glow=.8;
+        if (SEAT() && !hasAnim(seatSkin(v)) && (v.state==='walk' || v.state==='sitting')){ v.state='sit'; v.frame=7; if (v.seat){ v.x=v.seat.x; v.y=v.seat.y; } } } } break;
       case 'chat': { const v=visitors.get(m.id); if(v){ v.bubble={text:m.text||'', emotes:m.emotes||[], until:performance.now()+Math.min(12000, 5000+(m.text||'').length*60)}; v.bow=.6; } } break;
       case 'gift': { const v=visitors.get(m.id); if(v){ v.coins=m.total; giftFx(v,m.tier); queueIncense(v.id, isFlower(m.giftName)?'flower':'incense', true); } meritTop=m.merit||meritTop; renderMerit(); showGift(m); showChariot(m); } break;
       case 'like': { const v=visitors.get(m.id); if(v){ hearts(v,m.n); v.hotUntil=performance.now()+3000; } } break;
@@ -761,10 +912,12 @@ function connect(){
   };
 }
 function applySettings(){
+  document.getElementById('countLbl').innerHTML = SEAT() ? 'đang<br>thiền' : 'đang<br>lễ Phật';
   document.getElementById('title').textContent=settings.title||'Chánh Điện Tịnh Tâm'; fitTitle();
   document.getElementById('subtitle').textContent=settings.subtitle||'Nam Mô A Di Đà Phật';
   document.getElementById('plaque').hidden = settings.showPlaque === false;
   document.getElementById('merit').hidden = settings.showMerit === false;
+  renderRules(); document.getElementById('side').hidden = settings.showMerit === false && settings.showRules === false;
   document.getElementById('meritTitle').textContent = '✦ ' + (settings.meritTitle || 'Ghi Danh') + ' ✦';
   SCENE_OPTS.bgAltar = settings.bgAltar !== false; renderGuide();
   duck(voicePlaying); scheduleMo();
@@ -923,57 +1076,64 @@ function frame(now){
     .map(v=>[v, v.glow>0?3 : v.bubble&&now<v.bubble.until?2 : v.state==='sit'&&now<(v.hotUntil||0)?1 : 0]).filter(x=>x[1])
     .sort((a,b)=>b[1]-a[1] || (b[0].hotUntil||0)-(a[0].hotUntil||0)).slice(0,12).map(x=>x[0])) : null;
   startIncense();
+  const nameTags=[];
   for (const v of list){
-    const anim=hasAnim(v.skin), s=v.seat?.scale||.4;
-    if (v.state==='toAltar'){ if (follow(v,dt)){ v.state='offer'; v.offerT=0; v.flip=false; v.frame=4; if (v.gift) zoomTo(v); } }
+    if (SEAT()){ seatVisitor(v, dt, now, t, big, shown, bubbles, lateTags); continue; }
+    if (v.state==='toAltar'){ if (follow(v,dt)){ v.state='offer'; v.offerT=0; v.flip=false; if (v.gift) zoomTo(v); } }
     else if (v.state==='offer'){
-      const was=v.offerT, kneel=v.offerKind==='bow'; v.offerT+=dt; v.frame = kneel ? kneelFrame(v.offerT) : 4;
+      const was=v.offerT, kneel=v.offerKind==='bow'; v.offerT+=dt;
       for (const b of kneel ? KNEEL_BOWS : [.5,1.6,2.7]) if (was<b && v.offerT>=b) v.bow=1;  // three bows
       if (!v.planted && v.offerT>=(kneel ? KNEEL_AT : PLANT_AT)){ v.planted=true; plantIncense(v); }
-      if (v.offerT>=(kneel ? KNEEL_T : OFFER_T)){ v.state='back'; v.path=[{ x:540, y:ALTAR.y+40 }, { x:540, y:v.seat.y }, { x:v.seat.x, y:v.seat.y }]; altarBusy[v.spot]=null;
+      if (v.offerT>=(kneel ? KNEEL_T : OFFER_T)){ const k=v.seat.line; v.state='back'; altarBusy[v.spot]=null;   // back down the aisle to their place
+        v.path=[{ x:aisleX(k, ALTAR.y+40), y:ALTAR.y+40 }, { x:aisleX(k, v.seat.y), y:v.seat.y }];
         if (v.pendingXam){ const x=v.pendingXam; v.pendingXam=null; setTimeout(()=>queueIncense(v.id,'xam',true,x), 1500); } }
     }
-    else if (v.state==='back'){ if (follow(v,dt)){ v.flip=false; if (anim){ v.state='sitting'; v.sitT=0; } else { v.state='sit'; v.frame=7; } } }
-    else if (v.state==='walk' && v.seat){
-      const depth=(v.y-FLOOR.yTop)/(FLOOR.yBot-FLOOR.yTop), sp=(170+190*Math.max(0,Math.min(1.5,depth)))*dt, dx=v.seat.x-v.x, dy=v.seat.y-v.y;
-      if (Math.abs(dy)>3){ v.y+=Math.max(-sp,Math.min(sp,dy)); v.x+=(540-v.x)*Math.min(1,dt*6); v.flip=false; } else { v.x+=Math.max(-sp,Math.min(sp,dx)); v.flip=dx<0; }
-      v.ft+=dt; if (v.ft>.15){ v.ft=0; v.frame=(v.frame+1)%4; }
-      if (Math.abs(v.x-v.seat.x)<2 && Math.abs(v.y-v.seat.y)<3){ v.x=v.seat.x; v.y=v.seat.y; v.state='sitting'; v.sitT=0; v.flip=false; }
-    } else if (v.state==='sitting'){ v.sitT+=dt; v.frame=4+Math.min(3,Math.floor(v.sitT/.22)); if (v.sitT>.9){ v.state='sit'; v.frame=7; } }
-    else if (v.seat){ v.x+=(v.seat.x-v.x)*Math.min(1,dt*3); v.y+=(v.seat.y-v.y)*Math.min(1,dt*3); }      // glide when the grid grows
+    else if (v.state==='back' || v.state==='walk'){ if (follow(v,dt)){ v.flip=false; v.state='sit'; } }
+    else if (v.seat){                                            // in line: step forward / sideways when the line moves
+      const dx=v.seat.x-v.x, dy=v.seat.y-v.y, d=Math.hypot(dx,dy);
+      if (d>1.5){ const depth=Math.max(0,Math.min(1.5,(v.y-FLOOR.yTop)/(FLOOR.yBot-FLOOR.yTop))), sp=Math.min(d,(110+140*depth)*dt);
+        v.x+=dx/d*sp; v.y+=dy/d*sp; v.stepping=true; v.ft+=dt; if (v.ft>.15){ v.ft=0; v.frame=(v.frame+1)%4; } }
+      else { v.x=v.seat.x; v.y=v.seat.y; v.stepping=false; v.flip=false; }
+    }
     v.fade=Math.min(1,v.fade+dt*2); v.glow=Math.max(0,v.glow-dt*.45); v.bow=Math.max(0,v.bow-dt*.7);
-    const moving = v.state==='walk'||v.state==='toAltar'||v.state==='offer'||v.state==='back';
-    const ws = v.state==='offer' || (v.state!=='walk' && moving && v.y<FLOOR.yTop) ? .36 : moving ? (.26+.26*Math.max(0,Math.min(1,(v.y-FLOOR.yTop)/(FLOOR.yBot-FLOOR.yTop)))) * ((6/gridFor(cap)[0])**.7) : s;
+    const ws = scaleAt(Math.max(ALTAR.y, v.y));                 // everyone is sized by where they stand
+    const walking = v.state==='walk' || v.state==='toAltar' || v.state==='back' || (v.state==='sit' && v.stepping);
+    const kneel = v.state==='offer' && v.offerKind==='bow', down = kneel && kneeling(v.offerT);
+    const f = PEOPLE.figure(v.skin, outfitOf(v), walking ? 'w'+(v.frame%4) : down ? 'kneel' : 'stand');
+    if (!f) continue;                                           // picture still loading (a split second at start)
+    const k = ws/PEOPLE.RES, topY = (f.oy-f.top)*k;
     if (v.glow>0 || v.skin==='master'){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.globalAlpha=Math.max(v.glow*.75, v.skin==='master'?.35+.1*Math.sin(t*1.6):0);
-      const g=ctx.createRadialGradient(v.x,v.y-110*ws,8,v.x,v.y-110*ws,200*ws); g.addColorStop(0,'rgba(255,205,120,.95)'); g.addColorStop(1,'rgba(255,160,60,0)'); ctx.fillStyle=g; ctx.fillRect(v.x-230*ws,v.y-340*ws,460*ws,400*ws); ctx.restore(); }
-    const breathe = v.state==='sit' ? Math.sin(t*1.1+v.phase)*2*ws : 0, kneeling = v.state==='offer' && v.offerKind==='bow',
-      bowK = v.state==='sit' ? Math.sin(Math.min(1,v.bow)*Math.PI)*.04 : v.state==='offer' && !(kneeling && anim) ? Math.sin(Math.min(1,v.bow)*Math.PI)*(kneeling?.24:.12) : 0;
-    ctx.save(); ctx.globalAlpha=v.fade; ctx.translate(v.x,v.y); if (bowK) ctx.transform(1,0,0,1-bowK,0,0);
-    let topY;
-    if (anim){ const a=ANIM[v.skin], k=ws*1.05*260/a.seatH, im=look(A['anim_'+v.skin], v), fx=v.frame*a.fw; if (v.flip) ctx.scale(-1,1);
-      const lb = kneeling && v.frame===6 ? kneelBow(v.offerT) : 0;
-      if (lb){                                    // seen from behind, a bow lowers the back and head: the body above the hips shrinks down onto them
-        const hip=a.fh*.7, up=hip*(1-.55*lb), y0=-a.fh*k;
-        ctx.drawImage(im, fx,hip,a.fw,a.fh-hip, -a.fw*k/2, y0+hip*k, a.fw*k, (a.fh-hip)*k);
-        ctx.drawImage(im, fx,0,a.fw,hip, -a.fw*k/2, y0+(hip-up)*k, a.fw*k, up*k);
-      } else ctx.drawImage(im, fx,0,a.fw,a.fh, -a.fw*k/2, -a.fh*k+breathe, a.fw*k, a.fh*k);
-      topY=(v.state==='sit' || (kneeling && v.frame>=5) ? a.seatH : a.fh*.97)*k; }
-    else { const sk = v.skin==='master'?'monk':v.skin; sprite(look(A[sk]||A.man, v),0,breathe,ws*1.05); topY=260*ws; }
+      const gy=v.y-topY*.55, g=ctx.createRadialGradient(v.x,gy,8,v.x,gy,topY*.75); g.addColorStop(0,'rgba(255,205,120,.95)'); g.addColorStop(1,'rgba(255,160,60,0)');
+      ctx.fillStyle=g; ctx.fillRect(v.x-topY*.8,gy-topY*.8,topY*1.6,topY*1.6); ctx.restore(); }
+    // A bow, seen from behind, lowers the back and head: everything above the hips is squeezed down onto them.
+    const nod = Math.sin(Math.min(1,v.bow)*Math.PI);
+    const lb = down ? kneelBow(v.offerT)*.5 : v.state==='offer' ? nod*.32 : v.state==='sit' ? nod*.1 : 0;
+    const breathe = v.state==='sit' && !v.stepping ? Math.sin(t*1.1+v.phase)*1.5*ws : 0;
+    ctx.save(); ctx.globalAlpha=v.fade; ctx.translate(v.x,v.y); if (v.flip) ctx.scale(-1,1);
+    const W=f.c.width, Hc=f.c.height, x0=-f.ox*k, y0=-f.oy*k;
+    if (lb > .001){ const hip=f.hip, upH=hip*(1-lb);
+      ctx.drawImage(f.c, 0,hip,W,Hc-hip, x0,y0+hip*k, W*k,(Hc-hip)*k);
+      ctx.drawImage(f.c, 0,0,W,hip, x0,y0+(hip-upH)*k, W*k,upH*k); }
+    else ctx.drawImage(f.c, x0, y0+breathe, W*k, Hc*k);
     ctx.restore();
     if (v.state==='offer' && !v.planted && v.offerKind!=='bow'){                       // incense (or a lotus) held up in both hands
-      const lift=Math.min(1,v.offerT*3), bob=Math.sin(Math.min(1,v.bow)*Math.PI)*28*ws;
+      const lift=Math.min(1,v.offerT*3), bob=nod*28*ws;
       ctx.save(); ctx.globalAlpha=lift;
-      if (v.offerKind==='xam') drawTube(v.x, v.y-topY*.5+bob, ws*2.1, v.offerT>.8 ? Math.sin(t*24)*.16 : 0);   // shaken once raised
-      else sprite(v.offerKind==='flower'?A.lotus:A.incense, v.x, v.y-topY*.62+bob, ws*.55);
+      if (v.offerKind==='xam') drawTube(v.x, v.y-topY*.6+bob, ws*1.8, v.offerT>.8 ? Math.sin(t*24)*.16 : 0);   // shaken once raised
+      else sprite(v.offerKind==='flower'?A.lotus:A.incense, v.x, v.y-topY*.68+bob, ws*.5);
       ctx.restore(); }
-    // Seated people carry no name tag (the hall gets too busy): only whoever goes up to the altar is named, with what they offer.
-    const ty=v.y-topY-14*ws/.4, live = v.bubble && now<v.bubble.until, up = v.state==='toAltar' || v.state==='offer';
+    // Everyone in line wears a small name tag over their head (in a crowded hall only the busiest ones); whoever is up
+    // at the altar gets a gold one with what they offer; a comment shows as a bubble above the tag.
+    const ty=v.y-topY-8*ws/.4, live = v.bubble && now<v.bubble.until, up = v.state==='toAltar' || v.state==='offer';
     if (!live) v.bubble=null;
-    const ts = big ? Math.max(ws,.3) : ws;
+    const ts = Math.max(.3, Math.min(.46, ws)), tagS = Math.max(.27, ws*.62), named = !big || shown.has(v);
     // the two altar spots are close: the right one's tag sits a line higher so both names stay readable
-    if (up) lateTags.push([`${v.name} · ${OFFER_WORD[v.offerKind]||'dâng hương'}`, v.x, ty-(v.state==='offer' && v.spot===1 ? 44 : 0), Math.max(ts,.34), 'gold', avatar(v.avatar), 0]);
-    if (live && !up && (!big || shown.has(v))) bubbles.push([v.bubble, v.x, ty+8*ts/.4, ts]);   // up at the altar the tag says it all
+    const st = PEOPLE.figure(v.skin, outfitOf(v), 'stand') || f, upY = v.y-(st.oy-st.top)*k-8*ws/.4;   // kneeling or not, the tag stays put
+    if (up) lateTags.push([`${v.name} · ${OFFER_WORD[v.offerKind]||'dâng hương'}`, v.x, upY-(v.state==='offer' && v.spot===1 ? 46 : 0), Math.max(ts,.34), 'gold', avatar(v.avatar), 0]);
+    else if (named) nameTags.push([v.name, v.x, ty, tagS, v.glow>0 ? 'gold' : 'plain', null, lineGap(v.y)*.96]);
+    if (live && !up && named) bubbles.push([v.bubble, v.x, ty-15*tagS/.4, ts]);   // up at the altar the tag says it all
   }
+  for (const t of nameTags) tag(...t);
   for (const t of lateTags) tag(...t);
   const placed=[]; for (const b of bubbles.reverse()) bubble(...b, placed);   // front row first: it keeps its spot, the ones behind make room
   // gift icons rising, petals / hearts

@@ -28,6 +28,10 @@ const UPDATE_REPO = process.env.UPDATE_REPO || 'tobi1008/chanh-dien-online';    
 // action: what commenting a row's *starred* words does (see findAction). '' = the row is only shown.
 const DEFAULT_GUIDE = [ { icon:'💬', text:'Bình luận để vào', action:'' }, { icon:'🙏', text:'*Dâng hương*', action:'incense' },
   { icon:'🌸', text:'*Dâng hoa*', action:'flower' }, { icon:'🔮', text:'*Quẻ tử vi*', action:'xam' }, { icon:'🙇', text:'*Lạy* · *Vái*', action:'bow' } ];
+const DEFAULT_RULES = 'Không chen lấn, xô đẩy nhau.\nKhông mượn đồ của người khác.\nKhông mang nhầm dép, cầm nhầm đồ.';
+const DEFAULT_OUTFITS = ['tim', 'hong', 'la', 'troi'];
+const DEFAULT_POOL = ['man', 'woman'];
+const SEAT_OUTFIT_IDS = ['lam', 'blue', 'brown', 'white', 'yellow', 'rose'];   // robes of the original sprites, see OUTFITS in live/scenes.js
 const settings = {
   title: 'Chánh Điện Tịnh Tâm',
   subtitle: 'Nam Mô A Di Đà Phật',
@@ -48,7 +52,16 @@ const settings = {
   scene: 'hall',                     // backdrop, see live/scenes.js
   sceneAuto: false, sceneEveryMin: 10,
   sceneOff: [],                      // scenes the auto switch skips (so scenes added later are in the rotation by default)
-  outfits: ['lam'],                  // robes viewers wear, see OUTFITS in live/scenes.js; several = each viewer gets one of them
+  mode: 'line',                      // line: 3D people standing in line (live/people.js) · seat: the original hall, sprites sitting on cushions
+  seatOutfits: ['lam'],              // robes in the 'seat' hall (live/scenes.js recolours the sprites)
+  outfits: DEFAULT_OUTFITS,          // áo dài colours women wear, see OUTFITS in live/people.js; several = each viewer gets one of them
+  lines: 0,                          // number of lines in front of the altar (0 = by crowd size)
+  peopleSize: 100,                   // % size of the people in line, to suit the backdrop
+  showRules: true,                   // the "Nội Quy" board on the right of the overlay
+  rulesTitle: 'Nội Quy',
+  rules: DEFAULT_RULES,              // one rule per line
+  charWords: {},                     // character id → "keyword, keyword" set in the panel (see buildSkinKeys)
+  charPool: DEFAULT_POOL,            // characters newcomers get, in turn: built-in skins and "up:<file>" uploads (assets/chars)
   track: '',                         // background music file in assets/music now playing
   musicAuto: true,                   // when a track ends, play a random other one not in musicOff (off = repeat the track)
   musicOff: [],                      // tracks the auto switch skips (so files added later are in the rotation by default)
@@ -71,9 +84,30 @@ function scanBg(){
   catch { return []; }
 }
 let bgFiles = scanBg();
+// Character pictures uploaded from the panel live in assets/chars; each one is a skin with id "up:<file>". A viewer who
+// comments exactly the picture's name (file name without extension, accents optional) becomes that character.
+const CHAR_DIR = path.join(ROOT, 'assets', 'chars');
+function scanChars(){
+  try { return fs.readdirSync(CHAR_DIR).filter(f => !f.startsWith('.') && /\.(png|webp|jpe?g)$/i.test(f)).sort((a, b) => a.localeCompare(b, 'vi')); }
+  catch { return []; }
+}
+let charFiles = scanChars(), charWatch = null;
+const BUILTIN_SKINS = ['woman', 'man', 'lady', 'granny', 'monk', 'nun', 'master', 'child'];
+const allSkins = () => [...BUILTIN_SKINS, ...charFiles.map(f => 'up:' + f)];
+// skin for a newcomer: the characters ticked in the panel (settings.charPool), in turn
+// "Ngồi bồ đoàn" (settings.mode 'seat', the original hall) has its own sprites: men, women and a granny in turn.
+const SEAT_SKINS = ['man', 'woman', 'woman', 'man', 'granny'];
+function nextSkin(){ if (settings.mode === 'seat') return SEAT_SKINS[viewers.size % SEAT_SKINS.length];
+  const ok = allSkins(), pool = settings.charPool.filter(id => ok.includes(id)), l = pool.length ? pool : DEFAULT_POOL; return l[viewers.size % l.length]; }
+const unaccent = t => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, ' ').trim();
+function refreshChars(){
+  const l = scanChars(); if (l.join('\n') === charFiles.join('\n')) return;
+  charFiles = l; buildSkinKeys(); broadcast({ t:'chars', chars: l, charDefaults: charDefaults() }); addLog(`🧍 Có ${l.length} nhân vật tự tải`);
+  for (const v of viewers.values()) if (v.skin.startsWith('up:') && !l.includes(v.skin.slice(3))){ v.skin = nextSkin(); broadcast({ t:'skin', id: v.id, skin: v.skin }); }   // its picture was deleted
+}
 const allScenes = () => [...SCENE_IDS, ...bgFiles.map(f => 'bg:' + f)];
 const sceneName = id => SCENE_NAMES[id] || String(id).replace(/^bg:/, '').replace(/\.[^.]+$/, '');
-const OUTFIT_IDS = ['lam', 'blue', 'brown', 'white', 'yellow', 'rose'];
+const OUTFIT_IDS = ['tim', 'hong', 'la', 'troi', 'trang', 'vang', 'lam'];
 // Settings survive restarts in live/config.json (git-ignored).
 const CONFIG = path.join(__dirname, 'config.json');
 
@@ -101,20 +135,29 @@ function addLog(s){ const line = `[${new Date().toLocaleTimeString('vi-VN')}] ${
 const CAPS = [24, 36, 64, 100];
 function capacity(){ const n = viewers.size; return CAPS.find(c => n <= c) || Math.ceil(n / 50) * 50; }
 
-/* skins: sprites that exist in /assets. Walking strips exist for man / woman / granny. */
-// A comment changes the outfit only when it IS the keyword (≤ 3 words), so "Nam mô A Di Đà Phật" never reads as "nam".
-const SKIN_WORDS = [
-  ['master', ['cao tăng','cao tang']], ['monk', ['sư','su','sư thầy','su thay','thầy','thay']], ['nun', ['ni','ni cô','ni co','sư cô','su co']],
-  ['child', ['tiểu','tieu','chú tiểu','chu tieu','bé','be']], ['granny', ['bà','ba','áo nâu','ao nau','cụ','cu']],
-  ['woman', ['nữ','nu','chị','chi','gái','gai']], ['man', ['nam','anh','trai']],
-];
+/* skins: the characters in assets/people (live/people.js) and uploads in assets/chars ("up:<file>").
+   Their keywords are edited in the panel (settings.charWords: id → "word, word"); a character without an entry there uses
+   CHAR_WORDS (built-in) or its file name (upload). Matching ignores case and accents. A comment changes the character when
+   it IS a keyword, or starts with one and is at most 3 words long, so "Nam mô A Di Đà Phật" never reads as "nam".
+   The longest keyword wins ("sư cô" before "sư"). */
+const CHAR_WORDS = { woman:'nữ, áo dài, chị, gái', man:'nam, anh, trai', lady:'khăn hồng, áo tràng, phật tử', granny:'bà, cụ, áo nâu',
+  monk:'sư, thầy, sư thầy', master:'cao tăng, áo xám', nun:'ni, ni cô, sư cô', child:'bé, tiểu, chú tiểu' };
+const charDefaults = () => ({ ...CHAR_WORDS, ...Object.fromEntries(charFiles.map(f => ['up:' + f, f.replace(/\.[^.]+$/, '')])) });
+let skinKeys = [];                   // [unaccented keyword, skin], longest first
+function buildSkinKeys(){
+  const d = charDefaults(); skinKeys = [];
+  for (const id of allSkins()) for (const w of String(settings.charWords?.[id] ?? d[id] ?? '').split(',')){
+    const k = unaccent(w); if (k && !skinKeys.some(x => x[0] === k)) skinKeys.push([k, id]); }
+  skinKeys.sort((a, b) => b[0].length - a[0].length);
+}
 function skinFromText(t){
-  const w = String(t).toLowerCase().normalize('NFC').replace(/[^\p{L}\s]/gu, ' ').replace(/\s+/g, ' ').trim();
-  if (!w || w.split(' ').length > 3) return null;
-  for (const [skin, words] of SKIN_WORDS) if (words.some(k => w === k || w.startsWith(k + ' '))) return skin;
+  const u = unaccent(t); if (!u) return null;
+  for (const [k, id] of skinKeys) if (u === k) return id;
+  if (u.split(' ').length > 3) return null;
+  for (const [k, id] of skinKeys) if (u.startsWith(k + ' ')) return id;
   return null;
 }
-const DEFAULT_SKINS = ['man', 'woman', 'woman', 'man', 'granny'];
+const DEFAULT_SKINS = ['man', 'woman'];   // only for sessions saved without a skin
 
 /* comment commands */
 // A comment containing a keyword triggers its action: incense / flower (walk up and offer), xam (draw a fortune),
@@ -177,7 +220,7 @@ function onXamAsk(v){
 }
 
 function pub(v){ return { id:v.id, name:v.name, skin:v.skin, avatar:v.avatar||'', coins:v.coins }; }
-function snapshot(){ return { t:'state', tracks: musicFiles, bgs: bgFiles, track: musicTrack(), musicSeq, settings, viewers:[...viewers.values()].map(pub), cap: capacity(), startedAt, tiktok: tiktokState, merit: topMerit(), version: VERSION, sceneAt }; }
+function snapshot(){ return { t:'state', tracks: musicFiles, bgs: bgFiles, chars: charFiles, charDefaults: charDefaults(), track: musicTrack(), musicSeq, settings, viewers:[...viewers.values()].map(pub), cap: capacity(), startedAt, tiktok: tiktokState, merit: topMerit(), version: VERSION, sceneAt }; }
 
 function cleanName(name, id){
   name = String(name || id || '').slice(0, 18);
@@ -187,7 +230,7 @@ function seat(id, name, opts = {}){
   if (!id || blocked.has(id)) return { v:null, isNew:false };
   let v = viewers.get(id);
   if (v){ v.lastAt = Date.now(); if (opts.avatar) v.avatar = opts.avatar; return { v, isNew:false }; }
-  v = { id, name: cleanName(name, id), skin: opts.skin || DEFAULT_SKINS[viewers.size % DEFAULT_SKINS.length],
+  v = { id, name: cleanName(name, id), skin: opts.skin || nextSkin(),
         avatar: opts.avatar || '', coins: merit.get(id)?.coins || 0, joinedAt: Date.now(), lastAt: Date.now() };
   viewers.set(id, v);
   broadcast({ t:'join', v: pub(v), cap: capacity() });
@@ -307,15 +350,15 @@ const VOICE = {
     'Lòng thành của {n} thật đáng quý. Xin tùy hỷ, nguyện {n} luôn an vui.',
   ],
   join1: [
-    'Chào {n} vừa vào chánh điện. Mời bạn an tọa, cùng tịnh tâm.',
+    'Chào {n} vừa vào chánh điện. Mời bạn vào hàng, cùng lễ Phật.',
     'Nam mô A Di Đà Phật. Hoan hỷ đón {n} đến với chánh điện.',
     'Xin chào {n}. Chúc {n} một buổi tịnh tâm an lành.',
-    'Chào {n}. Mời bạn ngồi xuống, thở nhẹ, buông bớt lo âu.',
+    'Chào {n}. Mời bạn xếp hàng, thở nhẹ, buông bớt lo âu.',
   ],
   joinMany: [
-    'Chào {n} và {k} bạn vừa vào chánh điện. Mời mọi người an tọa, cùng tịnh tâm.',
+    'Chào {n} và {k} bạn vừa vào chánh điện. Mời mọi người xếp hàng, cùng tịnh tâm.',
     'Nam mô A Di Đà Phật. Hoan hỷ đón {n} cùng {k} bạn đạo vừa đến.',
-    'Chào {n} và {k} bạn. Mời cùng ngồi xuống, giữ tâm an tịnh.',
+    'Chào {n} và {k} bạn. Mời cùng vào hàng, giữ tâm an tịnh.',
   ],
   follow1: [
     'Cảm ơn {n} đã theo dõi chánh điện. Nguyện {n} luôn an lạc.',
@@ -337,16 +380,16 @@ const VOICE = {
     'Nam mô A Di Đà Phật. {n} được quẻ số {no}, quẻ {level}. Lời bàn: {meaning}',
   ],
   idle: [
-    'Nam mô A Di Đà Phật. Mời quý vị bình luận một câu để vào chánh điện, cùng ngồi xuống tịnh tâm.',
-    'Hít vào thật chậm, thở ra thật nhẹ. Tâm an thì cảnh an. Ai muốn vào ngồi, xin bình luận một câu.',
+    'Nam mô A Di Đà Phật. Mời quý vị bình luận một câu để vào chánh điện, cùng xếp hàng lễ Phật.',
+    'Hít vào thật chậm, thở ra thật nhẹ. Tâm an thì cảnh an. Ai muốn vào hàng, xin bình luận một câu.',
     'Một lời nói hiền, một ý nghĩ lành, là đã gieo một hạt giống tốt. Mời quý vị bình luận để cùng vào chánh điện.',
     'Buông bớt lo âu, giữ lấy hơi thở này. Ai muốn thắp một nén nhang, xin gõ chữ dâng hương.',
     'Giận một phút, mất vui cả ngày. Nhịn một câu, lòng nhẹ cả đời. Mời quý vị cùng tịnh tâm.',
-    'Bình an không ở đâu xa, bình an ở ngay hơi thở này. Mời quý vị ngồi xuống cùng chánh điện.',
-    'Nước chảy đá mòn, tu tâm cũng vậy, mỗi ngày một chút. Bình luận một câu để vào ngồi cùng đại chúng.',
+    'Bình an không ở đâu xa, bình an ở ngay hơi thở này. Mời quý vị cùng vào hàng lễ Phật.',
+    'Nước chảy đá mòn, tu tâm cũng vậy, mỗi ngày một chút. Bình luận một câu để vào hàng cùng đại chúng.',
     'Lời Phật dạy: hận thù không diệt được hận thù, chỉ có tình thương mới làm hận thù lắng xuống.',
     'Ai muốn lạy Phật, xin gõ chữ lạy. Ai muốn dâng hoa, xin gõ dâng hoa.',
-    'Cảm ơn quý vị đang lặng lẽ ngồi cùng chánh điện. Chỉ cần một câu bình luận là được ngồi lên bồ đoàn.',
+    'Cảm ơn quý vị đang lặng lẽ cùng chánh điện. Chỉ cần một câu bình luận là được vào hàng lễ Phật.',
     'Quá khứ đã qua, tương lai chưa tới. Sống trọn vẹn giây phút này, đó là bình an.',
     'Chuông chùa ngân nhẹ, mời quý vị gác lại bộn bề, cùng niệm một câu Nam mô A Di Đà Phật.',
   ],
@@ -407,11 +450,24 @@ function flushGift(id){
   say(fill(pick(list), { n: speakName(p.name) }), true);
 }
 // Newcomers and follows: at most one line per 20 s (30 s for follows); a busy room becomes "X và N bạn".
+// The voice lines above invite people to join the line; the seat hall says the original words (sit down, cushions).
+const SEAT_LINES = new Map([
+  ['Chào {n} vừa vào chánh điện. Mời bạn vào hàng, cùng lễ Phật.', 'Chào {n} vừa vào chánh điện. Mời bạn an tọa, cùng tịnh tâm.'],
+  ['Chào {n}. Mời bạn xếp hàng, thở nhẹ, buông bớt lo âu.', 'Chào {n}. Mời bạn ngồi xuống, thở nhẹ, buông bớt lo âu.'],
+  ['Chào {n} và {k} bạn vừa vào chánh điện. Mời mọi người xếp hàng, cùng tịnh tâm.', 'Chào {n} và {k} bạn vừa vào chánh điện. Mời mọi người an tọa, cùng tịnh tâm.'],
+  ['Chào {n} và {k} bạn. Mời cùng vào hàng, giữ tâm an tịnh.', 'Chào {n} và {k} bạn. Mời cùng ngồi xuống, giữ tâm an tịnh.'],
+  ['Nam mô A Di Đà Phật. Mời quý vị bình luận một câu để vào chánh điện, cùng xếp hàng lễ Phật.', 'Nam mô A Di Đà Phật. Mời quý vị bình luận một câu để vào chánh điện, cùng ngồi xuống tịnh tâm.'],
+  ['Hít vào thật chậm, thở ra thật nhẹ. Tâm an thì cảnh an. Ai muốn vào hàng, xin bình luận một câu.', 'Hít vào thật chậm, thở ra thật nhẹ. Tâm an thì cảnh an. Ai muốn vào ngồi, xin bình luận một câu.'],
+  ['Bình an không ở đâu xa, bình an ở ngay hơi thở này. Mời quý vị cùng vào hàng lễ Phật.', 'Bình an không ở đâu xa, bình an ở ngay hơi thở này. Mời quý vị ngồi xuống cùng chánh điện.'],
+  ['Nước chảy đá mòn, tu tâm cũng vậy, mỗi ngày một chút. Bình luận một câu để vào hàng cùng đại chúng.', 'Nước chảy đá mòn, tu tâm cũng vậy, mỗi ngày một chút. Bình luận một câu để vào ngồi cùng đại chúng.'],
+  ['Cảm ơn quý vị đang lặng lẽ cùng chánh điện. Chỉ cần một câu bình luận là được vào hàng lễ Phật.', 'Cảm ơn quý vị đang lặng lẽ ngồi cùng chánh điện. Chỉ cần một câu bình luận là được ngồi lên bồ đoàn.'],
+]);
+const pickM = list => { const l = pick(list); return settings.mode === 'seat' ? SEAT_LINES.get(l) ?? l : l; };
 function batcher(gapMs, one, many, enabled){
   let names = [], timer = null, last = 0;
   const flush = () => { timer = null; if (!names.length || !enabled()) { names = []; return; }
     const n = speakName(names.at(-1)), k = names.length - 1; names = []; last = Date.now();
-    say(k ? fill(pick(many), { n, k }) : fill(pick(one), { n })); };
+    say(k ? fill(pickM(many), { n, k }) : fill(pickM(one), { n })); };
   return name => {
     if (!settings.voiceOn || !enabled()) return;
     if (!names.includes(name)) names.push(name); if (names.length > 500) names.shift();
@@ -433,7 +489,7 @@ function voiceLike(name, n){
 setInterval(() => {
   if (!settings.voiceOn || !settings.voiceIdle || Date.now() - lastSayAt < settings.voiceIdleMin * 60_000) return;
   if (!overlayStatus().sound) { lastSayAt = Date.now(); return; }
-  say(pick(settings.xamOn && Math.random() < .2 ? VOICE.idleXam : VOICE.idle));
+  say(pickM(settings.xamOn && Math.random() < .2 ? VOICE.idleXam : VOICE.idle));
 }, 10_000);
 
 // Auto scene switch: every sceneEveryMin minutes, the next scene not in sceneOff. Picking a scene by hand restarts the wait.
@@ -464,6 +520,7 @@ function refreshBg(){
   if (!allScenes().includes(settings.scene)){ settings.scene = 'hall'; saveSettings(); scheduleScene(); broadcast({ t:'settings', settings, cap: capacity(), sceneAt }); }
 }
 try { fs.watch(MUSIC_DIR, () => { clearTimeout(musicWatch); musicWatch = setTimeout(refreshMusic, 800); }); } catch {}
+try { fs.mkdirSync(CHAR_DIR, { recursive: true }); fs.watch(CHAR_DIR, () => { clearTimeout(charWatch); charWatch = setTimeout(refreshChars, 800); }); } catch {}
 try { fs.mkdirSync(BG_DIR, { recursive: true }); fs.watch(BG_DIR, () => { clearTimeout(bgWatch); bgWatch = setTimeout(refreshBg, 800); }); } catch {}
 const musicTrack = () => musicFiles.includes(settings.track) ? settings.track : musicFiles[0] || '';
 const trackTitle = f => f.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim();
@@ -587,7 +644,7 @@ function clearMerit(){
   for (const v of viewers.values()) v.coins = 0;
   broadcast(snapshot()); addLog('Đã xoá bảng công đức');
 }
-function clearSeats(){ viewers.clear(); broadcast(snapshot()); addLog('Đã làm trống bồ đoàn'); }
+function clearSeats(){ viewers.clear(); broadcast(snapshot()); addLog('Đã làm trống các hàng'); }
 
 /* -------------------------------------------------------------- updates */
 // "Cập nhật" in the control panel: download the newest GitHub Release zip, unpack it with PowerShell, copy live/ and
@@ -642,19 +699,19 @@ async function installUpdate(){
 const SESSION_FILE = path.join(__dirname, 'session.json');
 function saveSession(){
   try { fs.writeFileSync(SESSION_FILE, JSON.stringify({ savedAt: Date.now(), tiktok: wantTikTok, viewers: [...viewers.values()], xam: [...xamDrawn] })); }
-  catch (e) { addLog('Không lưu được danh sách bồ đoàn: ' + e.message); }
+  catch (e) { addLog('Không lưu được danh sách người xếp hàng: ' + e.message); }
 }
 function restoreSession(){
   let s; try { s = JSON.parse(fs.readFileSync(SESSION_FILE, 'utf8')); fs.rmSync(SESSION_FILE, { force: true }); } catch { return; }
   if (!process.env.CD_RESTARTED || !(Date.now() - s.savedAt < 10 * 60_000)) return;
   for (const p of Array.isArray(s.viewers) ? s.viewers.slice(0, 5000) : []){
     const id = String(p?.id || '').slice(0, 100); if (!id || blocked.has(id) || viewers.has(id)) continue;
-    viewers.set(id, { id, name: cleanName(p.name, id), skin: String(p.skin || DEFAULT_SKINS[0]).slice(0, 20), avatar: String(p.avatar || '').slice(0, 1000),
+    viewers.set(id, { id, name: cleanName(p.name, id), skin: String(p.skin || DEFAULT_SKINS[0]).slice(0, 120), avatar: String(p.avatar || '').slice(0, 1000),
       coins: merit.get(id)?.coins || 0, joinedAt: +p.joinedAt || Date.now(), lastAt: +p.lastAt || Date.now(),
       lastText: String(p.lastText || '').slice(0, 200), lastTextAt: +p.lastTextAt || 0 });
   }
   for (const id of Array.isArray(s.xam) ? s.xam.slice(0, 5000) : []) if (typeof id === 'string') xamDrawn.add(id.slice(0, 100));
-  if (viewers.size){ broadcast(snapshot()); addLog(`↩︎ Đã đưa ${viewers.size} người về lại bồ đoàn sau khi cập nhật`); }
+  if (viewers.size){ broadcast(snapshot()); addLog(`↩︎ Đã đưa ${viewers.size} người về lại hàng sau khi cập nhật`); }
   if (s.tiktok) connectTikTok(String(s.tiktok).slice(0, 60));
 }
 
@@ -713,7 +770,16 @@ const SETTING_RULES = {
     return l.length ? l : DEFAULT_GUIDE; },
   track: v => String(v).slice(0, 200), musicAuto: Boolean,
   musicOff: v => Array.isArray(v) ? v.slice(0, 500).map(f => String(f).slice(0, 200)) : [],
-  outfits: v => { const l = OUTFIT_IDS.filter(id => Array.isArray(v) && v.includes(id)); return l.length ? l : ['lam']; },
+  outfits: v => { const l = OUTFIT_IDS.filter(id => Array.isArray(v) && v.includes(id)); return l.length ? l : DEFAULT_OUTFITS; },
+  lines: v => { const n = clamp(v, 0, 12); return n === 1 ? 2 : n; }, peopleSize: v => clamp(v, 60, 160),
+  mode: v => v === 'seat' ? 'seat' : 'line',
+  seatOutfits: v => { const l = SEAT_OUTFIT_IDS.filter(id => Array.isArray(v) && v.includes(id)); return l.length ? l : ['lam']; },
+  charPool: v => { const ok = allSkins(), l = (Array.isArray(v) ? v : []).filter((id, i, a) => ok.includes(id) && a.indexOf(id) === i); return l.length ? l : DEFAULT_POOL; },
+  charWords: v => { const ok = allSkins(), o = {};
+    if (v && typeof v === 'object') for (const id of ok) if (typeof v[id] === 'string') o[id] = v[id].split(',').map(w => w.trim().slice(0, 30)).filter(Boolean).slice(0, 10).join(', ');
+    return o; },
+  showRules: Boolean, rulesTitle: v => String(v).trim().slice(0, 20) || 'Nội Quy',
+  rules: v => (Array.isArray(v) ? v.join('\n') : String(v)).split(/\r?\n/).map(r => r.trim().slice(0, 60)).filter(Boolean).slice(0, 8).join('\n'),
 };
 const clamp = (v, a, b) => Math.max(a, Math.min(b, Math.round(+v || 0)));
 // menu rows saved before rows had an action: take it from the built-in keyword the row shows, if any
@@ -722,10 +788,14 @@ function applySettings(o){
   if (Array.isArray(o.guide) && o.guide.length < 8 && o.guide.every(r => r && !('action' in r)) && !o.guide.some(r => guessAction(r.text) === 'bow'))
     o = { ...o, guide: [...o.guide, DEFAULT_GUIDE.at(-1)] };                                  // menu from before actions: show the new "Lạy · Vái"
   if (Array.isArray(o.sceneCycle) && !('sceneOff' in o)) o = { ...o, sceneOff: ['hall', 'bamboo', 'lotus', 'peak'].filter(id => !o.sceneCycle.includes(id)) };   // config.json from v2026.11.03
-  for (const [k, fn] of Object.entries(SETTING_RULES)) if (k in o) settings[k] = fn(o[k]); wordFilter.setExtraWords(settings.filterExtra); buildKeywords(); }
+  if (Array.isArray(o.outfits) && !('seatOutfits' in o) && !('mode' in o)){                  // config.json from before the lines (v2026.11.13): its robes are the seat hall's
+    const old = SEAT_OUTFIT_IDS.filter(id => o.outfits.includes(id)), aoDai = OUTFIT_IDS.filter(id => id !== 'lam' && o.outfits.includes(id));
+    o = { ...o, seatOutfits: old.length ? old : ['lam'], outfits: aoDai.length ? aoDai : DEFAULT_OUTFITS };
+  }
+  for (const [k, fn] of Object.entries(SETTING_RULES)) if (k in o) settings[k] = fn(o[k]); wordFilter.setExtraWords(settings.filterExtra); buildKeywords(); buildSkinKeys(); }
 function saveSettings(){ try { fs.writeFileSync(CONFIG, JSON.stringify(settings, null, 2)); } catch (e) { addLog('Không lưu được cài đặt: ' + e.message); } }
 try { applySettings(JSON.parse(fs.readFileSync(CONFIG, 'utf8'))); } catch {}
-buildKeywords();                                                              // also when there is no config.json yet
+buildKeywords(); buildSkinKeys();                                             // also when there is no config.json yet
 if (settings.musicAuto && musicFiles.length) settings.track = pickTrack();     // every live opens on a different track
 scheduleChant(); scheduleScene();
 
@@ -768,6 +838,8 @@ const UPLOADS = {
     sniff: b => startsWith(b, 'ID3') || (b[0] === 0xFF && (b[1] & 0xE0) === 0xE0) || startsWith(b, 'ftyp', 4) || startsWith(b, 'OggS') || (startsWith(b, 'RIFF') && startsWith(b, 'WAVE', 8)) },
   bg: { dir: BG_DIR, max: 20e6, ext: /\.(jpe?g|png|webp)$/i, label: 'ảnh .jpg .png .webp', after: refreshBg,
     sniff: b => (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) || startsWith(b, '\x89PNG') || (startsWith(b, 'RIFF') && startsWith(b, 'WEBP', 8)) },
+  char: { dir: CHAR_DIR, max: 10e6, ext: /\.(png|webp|jpe?g)$/i, label: 'ảnh .png .webp .jpg', after: refreshChars,
+    sniff: b => (b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF) || startsWith(b, '\x89PNG') || (startsWith(b, 'RIFF') && startsWith(b, 'WEBP', 8)) },
 };
 function cleanFileName(n){
   n = path.basename(String(n || '').normalize('NFC')).replace(/[\\/:*?"<>|\x00-\x1f]/g, '').replace(/^[.\s]+/, '').trim();
@@ -804,7 +876,7 @@ function onUpload(req, res, url){
   });
 }
 function deleteUpload(kind, name){
-  const u = UPLOADS[kind], list = kind === 'music' ? musicFiles : bgFiles;
+  const u = UPLOADS[kind], list = kind === 'music' ? musicFiles : kind === 'char' ? charFiles : bgFiles;
   if (!u || !list.includes(name)) return;
   fs.unlink(path.join(u.dir, name), err => { if (err) return addLog(`❌ Không xóa được ${name}: ${err.message}`); addLog(`🗑 Đã xóa ${name}`); u.after(); });
 }

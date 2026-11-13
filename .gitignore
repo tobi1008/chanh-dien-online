@@ -10,3 +10,5 @@ live/session.json
 dist/
 pack/.cache/
 assets/bg/
+assets/chars/
+assets/*.zip

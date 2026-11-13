@@ -152,6 +152,17 @@ button.sm{padding:5px 10px;font-size:12px}
 .outfits{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
 .outfits canvas{aspect-ratio:1}
 .outfits .scene.on::before{content:"Đang dùng"}
+.chars{grid-template-columns:repeat(auto-fill,minmax(118px,1fr))}
+.chars canvas{aspect-ratio:3/4}
+.chars .scene.on::before{content:"Người mới vào"}
+.chars .kw{display:grid;gap:3px;padding:0 9px 4px;font-size:11.5px;color:var(--muted)}
+.chars .kw input{padding:5px 7px;font-size:12.5px;border-radius:8px}
+.chars .kw input.dup{border-color:#d9534f}
+.chars .n{padding:0 9px 8px;font-size:11.5px;color:var(--muted)}
+.chars .scene .del{top:auto;bottom:6px}
+/* "ngồi bồ đoàn": newcomers' characters are fixed (nam, nữ, bà), so the ticks and their badge go */
+.seat-mode .chars .cy input,.seat-mode .chars .scene.on::before{display:none}
+.seat-mode .chars .scene.on{border-color:var(--line2);box-shadow:none}
 .scene .del,.track .del{padding:3px 8px;font-size:12px;border-radius:8px}
 .scene .del{position:absolute;top:6px;right:6px;z-index:1;background:rgba(20,10,4,.75)}
 .track .del{margin-right:6px}
@@ -248,13 +259,13 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
               <button data-gift="Đèn hoa sen" data-dia="30"><span>🌸</span>Hoa sen<small>30 xu</small></button>
               <button data-gift="Chuông vàng" data-dia="199"><span>🔔</span>Chuông<small>199 xu</small></button>
             </div>
-            <p class="hint">Bình luận <b>dâng hương</b> (hoặc <b>thắp nhang</b>) thì người đó lên bàn thờ dâng hương, <b>dâng hoa</b> thì dâng hoa sen, <b>quẻ tử vi</b> (hoặc <b>xin xăm</b>) thì lên rút quẻ, <b>lạy</b> / <b>vái</b> thì lên bục vái lạy 3 lần. Từ khóa thêm trong <i>Cảnh &amp; quà → Menu hướng dẫn</i> cũng dùng được. Chỉ người đang ở bàn thờ mới hiện tên.</p>
+            <p class="hint">Bình luận <b>dâng hương</b> (hoặc <b>thắp nhang</b>) thì người đó lên bàn thờ dâng hương, <b>dâng hoa</b> thì dâng hoa sen, <b>quẻ tử vi</b> (hoặc <b>xin xăm</b>) thì lên rút quẻ, <b>lạy</b> / <b>vái</b> thì lên bục vái lạy 3 lần. Từ khóa thêm trong <i>Cảnh &amp; quà → Menu hướng dẫn</i> cũng dùng được. Ai đang xếp hàng cũng có bảng tên trên đầu.</p>
           </div>
           <div class="group">
             <h3>Chánh điện</h3>
-            <p class="hint">Chỉ người xem thật mới vào chánh điện: ai vào live là được chào tên và ngồi xuống bồ đoàn, không giới hạn số người. Chánh điện tự nới rộng khi đông.</p>
+            <p class="hint">Chỉ người xem thật mới vào chánh điện: ai vào live là được chào tên và xếp vào hàng trước bàn thờ, không giới hạn số người. Đông người thì tự thêm hàng.</p>
             <p class="hint">Các nút bên trái chỉ để kiểm tra trước khi lên sóng. Bấm nút dưới đây để mời người thử ra trước khi live.</p>
-            <button class="danger" id="btnClear">Làm trống toàn bộ bồ đoàn</button>
+            <button class="danger" id="btnClear">Làm trống toàn bộ các hàng</button>
             <button class="danger" id="btnClearMerit">Xoá bảng công đức</button>
           </div>
         </div>
@@ -345,9 +356,32 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
           <p class="hint">Từ khóa có sẵn luôn dùng được: <b>dâng hương · thắp nhang · thắp hương</b> → dâng hương, <b>dâng hoa · dâng sen</b> → dâng hoa, <b>quẻ tử vi · xin quẻ · xin xăm · gieo quẻ</b> → rút quẻ, <b>lạy · vái</b> → lên bục vái lạy.</p>
         </div>
         <div class="group">
-          <h3>Kiểu áo người xem</h3>
+          <h3>Kiểu chánh điện</h3>
+          <label>Kiểu<select id="mode"><option value="line">Xếp hàng — nhân vật 3D (mới)</option><option value="seat">Ngồi bồ đoàn — nhân vật cũ</option></select></label>
+          <p class="hint" id="modeHint"></p>
+          <div id="seatOpts">
+            <h3>Kiểu áo (ngồi bồ đoàn)</h3>
+            <div class="scenes outfits" id="seatOutfits"></div>
+            <p class="hint">Chọn nhiều kiểu thì mỗi người vào xem mặc một kiểu trong số đó. Bà cụ và các sư giữ nguyên áo.</p>
+          </div>
+          <div id="lineOpts">
+          <h3>Người xếp hàng</h3>
+          <div class="cols">
+            <label>Số hàng<select id="lines"><option value="0">Tự động theo số người</option><option value="3">3 hàng</option><option value="4">4 hàng</option><option value="5">5 hàng</option><option value="6">6 hàng</option><option value="7">7 hàng</option><option value="8">8 hàng</option><option value="9">9 hàng</option><option value="10">10 hàng</option></select></label>
+            <label>Cỡ người <output id="peopleSizeOut">100%</output><input type="range" id="peopleSize" min="60" max="160" step="5" value="100"></label>
+          </div>
+          <p class="hint">Mọi người đứng thành hàng dọc trước bàn thờ, nhìn từ phía sau. Người mới vào đi lên lối giữa và đứng vào cuối hàng ngắn nhất; có người rời đi thì người phía sau bước lên. Đổi ảnh nền thì chỉnh <b>Cỡ người</b> cho hợp cảnh.</p>
+          </div>
+          <h3>Nhân vật</h3>
+          <div class="scenes outfits chars" id="chars"></div>
+          <div class="upl"><button id="btnUpChar">🧍 Tải ảnh nhân vật lên</button><input type="file" id="upChar" accept="image/*" multiple hidden><span class="hint" id="upCharInfo"></span></div>
+          <p class="hint">Đánh dấu <b>Người mới vào</b> ở những nhân vật mà người xem mới vào sẽ lần lượt nhận. <b>Từ khóa</b>: người xem bình luận đúng một từ khóa (có dấu hay không dấu đều được) thì đổi sang nhân vật đó. Mỗi nhân vật nhiều từ khóa, cách nhau bằng dấu phẩy; để trống là không đổi được bằng bình luận. Sửa xong bấm Enter hoặc bấm ra ngoài là lưu. Ô viền đỏ là từ khóa trùng với nhân vật khác.</p>
+          <p class="hint">Tải lên được ảnh bất kỳ (jpg, png, webp, gif…, cỡ nào cũng được): ảnh tự được xóa nền trơn, cắt sát người, thu nhỏ cho vừa và lưu thành .png trong <code>assets/chars</code>. Đẹp nhất là một người <b>đứng, nhìn từ phía sau</b>, thấy cả bàn chân, nền trong suốt hoặc một màu. Từ khóa mặc định là tên file. Bấm 🗑 để xóa.</p>
+          <div id="lineOpts2">
+          <h3>Màu áo dài (người xem nữ)</h3>
           <div class="scenes outfits" id="outfits"></div>
-          <p class="hint">Chọn nhiều kiểu thì mỗi người vào xem mặc một kiểu trong số đó. Bà cụ và các sư giữ nguyên áo.</p>
+          <p class="hint">Áp dụng cho nhân vật <b>Nữ áo dài</b>: chọn nhiều màu thì mỗi bạn mặc một màu trong số đó. Các nhân vật khác giữ nguyên áo.</p>
+          </div>
         </div>
         <div class="cols">
           <div class="group">
@@ -356,6 +390,11 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
             <label>Dòng phụ<input id="subtitle" maxlength="60" value="Nam Mô A Di Đà Phật"></label>
             <label>Tên bảng bên phải<input id="meritTitle" maxlength="20" value="Ghi Danh"></label>
             <label class="sw"><span>Hiện bảng Ghi Danh<small>Bảng người tặng quà bên phải. Tắt để ẩn bảng khỏi màn hình live (công đức vẫn được ghi lại)</small></span><input type="checkbox" id="showMerit" checked></label>
+            <label class="sw"><span>Hiện bảng Nội Quy<small>Bảng nội quy bên phải, phía trên bảng Ghi Danh</small></span><input type="checkbox" id="showRules" checked></label>
+            <label>Tên bảng nội quy<input id="rulesTitle" maxlength="20" value="Nội Quy"></label>
+            <label>Nội quy (mỗi dòng một ý, tối đa 8 dòng)<textarea id="rules" rows="4" maxlength="500">Không chen lấn, xô đẩy nhau.
+Không mượn đồ của người khác.
+Không mang nhầm dép, cầm nhầm đồ.</textarea></label>
             <label class="sw"><span>Hiện biển tên trên cùng<small>Tắt để bỏ biển chùa và dòng chữ dưới biển (ví dụ khi ảnh nền đã có sẵn tên)</small></span><input type="checkbox" id="showPlaque" checked></label>
             <label class="sw"><span>Theo số người đang xem<small>Người xem rời live thì rời chánh điện (người im lặng lâu nhất ra trước)</small></span><input type="checkbox" id="syncViewers" checked></label>
             <label class="sw"><span>Chào người vào xem<small>Hiện ảnh đại diện + tên khi có người vào live</small></span><input type="checkbox" id="showEnter" checked></label>
@@ -404,6 +443,7 @@ footer{text-align:center;color:var(--faint);font-size:12px;padding:0 16px 24px}
 <div id="toast" role="status"></div>
 
 <script src="/live/scenes.js"></script>
+<script src="/live/people.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 let ws = null;
@@ -428,6 +468,7 @@ try{ const t=$('tab-'+location.hash.slice(1)) || $(localStorage.getItem('cd.tab'
 
 /* settings */
 const SETTING_IDS = ['music','mo','autoChant','moBpm','chantEveryMin','title','subtitle','meritTitle','showMerit','showPlaque','showEnter','syncViewers',
+  'showRules','rulesTitle','rules','lines','peopleSize','mode',
   'prayerFromChat','filterOn','filterMode','filterStrikes','filterExtra','audioOut','xamOn','sceneAuto','sceneEveryMin','musicAuto','bgAltar',
   'voiceOn','voiceGender','voiceRate','voiceVol','voiceGift','voiceJoin','voiceChant','voiceXam','voiceLike','voiceIdle','voiceIdleMin'];
 // sound devices come from the overlay window; the saved one stays in the list even when the overlay doesn't see it,
@@ -439,12 +480,12 @@ function drawOuts(){
   sel.replaceChildren(new Option('Loa mặc định của máy',''), ...names.map(n => new Option(outNames.includes(n) ? n : n+' (không thấy)', n)));
   sel.value=savedOut;
 }
-function fillSettings(s){ if (s.audioOut!==undefined){ savedOut=s.audioOut; drawOuts(); } if (s.scene) curScene=s.scene; if (s.sceneOff) sceneOff=s.sceneOff; if (s.outfits) outfits=s.outfits; if (s.musicOff) musicOff=s.musicOff; if (tracks.includes(s.track)) curTrack=s.track; if (s.guide && !$('guideRows').contains(document.activeElement)){ guide=s.guide; drawGuide(); }
-  if ('bgAltar' in s && SCENE_OPTS.bgAltar!==(s.bgAltar!==false)){ SCENE_OPTS.bgAltar=s.bgAltar!==false; sceneCards.filter(c=>c.id.startsWith('bg:')).forEach(drawThumb); } for (const k of SETTING_IDS){ const el=$(k); if (!el || s[k]===undefined || el===document.activeElement) continue; if (el.type==='checkbox') el.checked=!!s[k]; else el.value=s[k]; } $('brandTitle').textContent=s.title||'Chánh Điện Tịnh Tâm'; drawVoice(); drawScenes(); drawOutfits(); drawTracks(); }
-function readSettings(){ const o={}; for (const k of SETTING_IDS){ const el=$(k); o[k] = el.type==='checkbox' ? el.checked : el.type==='number' || el.type==='range' ? +el.value : el.value; } o.scene=curScene; o.sceneOff=sceneOff; o.outfits=OUTFIT_ORDER.filter(id=>outfits.includes(id)); o.musicOff=musicOff; o.guide=guide; return o; }
+function fillSettings(s){ if (s.audioOut!==undefined){ savedOut=s.audioOut; drawOuts(); } if (s.scene) curScene=s.scene; if (s.sceneOff) sceneOff=s.sceneOff; if (s.outfits) outfits=s.outfits; if (s.charPool) charPool=s.charPool; if (s.seatOutfits) seatOutfits=s.seatOutfits; if (s.charWords) charWords=s.charWords; if (s.musicOff) musicOff=s.musicOff; if (tracks.includes(s.track)) curTrack=s.track; if (s.guide && !$('guideRows').contains(document.activeElement)){ guide=s.guide; drawGuide(); }
+  if ('bgAltar' in s && SCENE_OPTS.bgAltar!==(s.bgAltar!==false)){ SCENE_OPTS.bgAltar=s.bgAltar!==false; sceneCards.filter(c=>c.id.startsWith('bg:')).forEach(drawThumb); } for (const k of SETTING_IDS){ const el=$(k); if (!el || s[k]===undefined || el===document.activeElement) continue; if (el.type==='checkbox') el.checked=!!s[k]; else el.value=s[k]; } $('brandTitle').textContent=s.title||'Chánh Điện Tịnh Tâm'; drawVoice(); drawScenes(); drawOutfits(); drawSeatOutfits(); drawMode(); drawChars(); drawTracks(); }
+function readSettings(){ const o={}; for (const k of SETTING_IDS){ const el=$(k); o[k] = el.type==='checkbox' ? el.checked : el.type==='number' || el.type==='range' ? +el.value : el.value; } o.scene=curScene; o.sceneOff=sceneOff; o.outfits=OUTFIT_ORDER.filter(id=>outfits.includes(id)); o.charPool=charPool; o.charWords=charWords; o.seatOutfits=SEAT_ORDER.filter(id=>seatOutfits.includes(id)); o.musicOff=musicOff; o.guide=guide; return o; }
 for (const k of SETTING_IDS) $(k).addEventListener('change', () => { if (send('settings', { settings: readSettings() })) toast('Đã lưu cài đặt'); });
-function drawVoice(){ $('voiceRateOut').textContent=$('voiceRate').value+'%'; $('voiceVolOut').textContent=$('voiceVol').value+'%'; }
-$('voiceRate').addEventListener('input', drawVoice); $('voiceVol').addEventListener('input', drawVoice);
+function drawVoice(){ $('peopleSizeOut').textContent=$('peopleSize').value+'%'; $('voiceRateOut').textContent=$('voiceRate').value+'%'; $('voiceVolOut').textContent=$('voiceVol').value+'%'; }
+$('voiceRate').addEventListener('input', drawVoice); $('peopleSize').addEventListener('input', drawVoice); $('voiceVol').addEventListener('input', drawVoice);
 
 /* music */
 let tracks=[], curTrack='', musicOff=[];
@@ -466,18 +507,22 @@ function drawTracks(){
 $('btnNextTrack').onclick=()=>send('nextTrack');
 
 /* uploads: music → assets/music, backgrounds → assets/bg (one file at a time, with progress) */
-function upload(kind, files, info, done){
-  const list=[...files]; let i=0;
-  const next=()=>{
-    if (i>=list.length){ info.textContent=`✅ Đã tải lên ${list.length} file`; return; }
-    const f=list[i++], x=new XMLHttpRequest();
-    x.open('POST', `/upload?kind=${kind}&name=${encodeURIComponent(f.name)}`); x.setRequestHeader('X-ChanhDien','upload');
-    x.upload.onprogress=e=>{ if (e.lengthComputable) info.textContent=`⬆️ ${f.name}: ${Math.round(e.loaded/e.total*100)}%`; };
+// prep (characters): turns each file into { blob, name } in the browser first; a file it can't use is skipped
+function upload(kind, files, info, done, prep){
+  const list=[...files]; let i=0, ok=0;
+  const next=async()=>{
+    if (i>=list.length){ if (ok) info.textContent=`✅ Đã tải lên ${ok} file`; return; }
+    const f=list[i++]; let body=f, name=f.name;
+    if (prep){ info.textContent=`⚙️ Đang xử lý ${f.name}…`;
+      try { ({ blob:body, name }=await prep(f)); } catch(e){ info.textContent=`❌ ${f.name}: ${e.message}`; toast('Ảnh không dùng được'); return setTimeout(next, 1500); } }
+    const x=new XMLHttpRequest();
+    x.open('POST', `/upload?kind=${kind}&name=${encodeURIComponent(name)}`); x.setRequestHeader('X-ChanhDien','upload');
+    x.upload.onprogress=e=>{ if (e.lengthComputable) info.textContent=`⬆️ ${name}: ${Math.round(e.loaded/e.total*100)}%`; };
     x.onload=()=>{ let r={}; try{ r=JSON.parse(x.responseText); }catch(e){}
-      if (x.status!==200){ info.textContent=`❌ ${f.name}: ${r.error||'lỗi '+x.status}`; toast('Tải lên không thành công'); return; }
-      done?.(r.name); next(); };
-    x.onerror=()=>{ info.textContent=`❌ ${f.name}: không gửi được (file quá lớn hoặc mất server)`; };
-    x.send(f);
+      if (x.status!==200){ info.textContent=`❌ ${name}: ${r.error||'lỗi '+x.status}`; toast('Tải lên không thành công'); return; }
+      ok++; done?.(r.name); next(); };
+    x.onerror=()=>{ info.textContent=`❌ ${name}: không gửi được (file quá lớn hoặc mất server)`; };
+    x.send(body);
   };
   next();
 }
@@ -575,38 +620,117 @@ Promise.all(Object.values(thumbImg).map(i=>i.decode().catch(()=>{}))).then(()=>{
   sceneCards.filter(c=>!c.id.startsWith('bg:')).forEach((c,i)=>setTimeout(()=>drawThumb(c), 60*i));
 });
 
-/* outfits: previews recoloured by live/scenes.js */
-const OUTFIT_ORDER=Object.keys(OUTFITS); let outfits=['lam'];
+/* outfits: áo dài colours, previews drawn by live/people.js */
+const OUTFITS=PEOPLE.OUTFITS, OUTFIT_ORDER=Object.keys(OUTFITS); let outfits=['tim','hong','la','troi'];
 const outfitCards=OUTFIT_ORDER.map(id=>{
   const card=document.createElement('label'); card.className='scene';
   const cv=document.createElement('canvas'); cv.width=200; cv.height=200;
   const nm=document.createElement('span'); nm.className='cy'; const ck=document.createElement('input'); ck.type='checkbox';
   ck.onchange=()=>{ const next = ck.checked ? [...outfits, id] : outfits.filter(x=>x!==id);
-    if (!next.length){ ck.checked=true; toast('Cần chọn ít nhất một kiểu áo'); return; }
+    if (!next.length){ ck.checked=true; toast('Cần chọn ít nhất một màu áo'); return; }
     outfits=next; drawOutfits(); if (send('settings', { settings: readSettings() })) toast('Đã lưu cài đặt'); };
   nm.append(ck, OUTFITS[id].name); card.append(cv, nm); $('outfits').append(card);
   return { id, card, ck, cv };
 });
 function drawOutfits(){ for (const c of outfitCards){ const on=outfits.includes(c.id); c.ck.checked=on; c.card.classList.toggle('on', on); } }
-const outfitSprites=['c_woman','c_man'].map(n=>{ const i=new Image(); i.src='/assets/'+n+'.png'; return i; });
-Promise.all(outfitSprites.map(i=>i.decode().catch(()=>{}))).then(()=>{
-  for (const c of outfitCards){ const g=c.cv.getContext('2d'); g.fillStyle='#24170e'; g.fillRect(0,0,200,200);
-    outfitSprites.forEach((im,i)=>{ const o=outfitImg(im, c.id); if (o.width) g.drawImage(o, 6+i*94, 50, o.width*.55, o.height*.55); }); }
+PEOPLE.ready('woman').then(()=>{ for (const c of outfitCards){ const g=c.cv.getContext('2d'); g.fillStyle='#24170e'; g.fillRect(0,0,200,200);
+  const f=PEOPLE.figure('woman', c.id, 'stand'); if (!f) continue; const k=186/(f.oy-f.top); g.drawImage(f.c, 100-f.ox*k, 196-f.oy*k, f.c.width*k, f.c.height*k); } });
+
+/* hall: "xếp hàng" (3D people in lines) or "ngồi bồ đoàn" (the original sprites on cushions) */
+function drawMode(){
+  const seat=$('mode').value==='seat';
+  $('seatOpts').hidden=!seat; $('lineOpts').hidden=seat; $('lineOpts2').hidden=seat; $('chars').classList.toggle('seat-mode', seat);
+  $('chars').parentElement.classList.toggle('seat-mode', seat);
+  $('modeHint').textContent = seat
+    ? 'Như bản gốc: người xem đi vào và ngồi xuống bồ đoàn, nhân vật áo lam vẽ tay. Người mới vào lần lượt là nam, nữ, bà cụ. Nữ khăn hồng và ảnh tự tải hiện thành nam / nữ áo lam; từ khóa bên dưới vẫn dùng được.'
+    : 'Người xem đứng thành hàng dọc trước bàn thờ, nhân vật 3D nhìn từ phía sau.';
+}
+$('mode').addEventListener('change', drawMode);
+/* robes of the seat hall: the original sprites recoloured by live/scenes.js */
+const SEAT_OUTFITS=window.OUTFITS, SEAT_ORDER=Object.keys(SEAT_OUTFITS); let seatOutfits=['lam'];
+const seatCards=SEAT_ORDER.map(id=>{
+  const card=document.createElement('label'); card.className='scene';
+  const cv=document.createElement('canvas'); cv.width=200; cv.height=200;
+  const nm=document.createElement('span'); nm.className='cy'; const ck=document.createElement('input'); ck.type='checkbox';
+  ck.onchange=()=>{ const next = ck.checked ? [...seatOutfits, id] : seatOutfits.filter(x=>x!==id);
+    if (!next.length){ ck.checked=true; toast('Cần chọn ít nhất một kiểu áo'); return; }
+    seatOutfits=next; drawSeatOutfits(); if (send('settings', { settings: readSettings() })) toast('Đã lưu cài đặt'); };
+  nm.append(ck, SEAT_OUTFITS[id].name); card.append(cv, nm); $('seatOutfits').append(card);
+  return { id, card, ck, cv };
 });
+function drawSeatOutfits(){ for (const c of seatCards){ const on=seatOutfits.includes(c.id); c.ck.checked=on; c.card.classList.toggle('on', on); } }
+const seatSprites=['c_woman','c_man'].map(n=>{ const i=new Image(); i.src='/assets/'+n+'.png'; return i; });
+Promise.all(seatSprites.map(i=>i.decode().catch(()=>{}))).then(()=>{
+  for (const c of seatCards){ const g=c.cv.getContext('2d'); g.fillStyle='#24170e'; g.fillRect(0,0,200,200);
+    seatSprites.forEach((im,i)=>{ const o=outfitImg(im, c.id); if (o.width) g.drawImage(o, 6+i*94, 50, o.width*.55, o.height*.55); }); }
+});
+
+/* characters: the built-in ones (live/people.js) and pictures uploaded to assets/chars ("up:<file>") */
+const BUILTIN_CHARS=[['woman','Nữ áo dài'],['man','Nam áo nâu'],['lady','Nữ khăn hồng'],['granny','Bà cụ'],['monk','Sư thầy áo nâu'],['master','Sư thầy áo xám'],['nun','Sư cô'],['child','Bé trai']];   // keywords: settings.charWords, defaults from the server
+let chars=[], charPool=['man','woman'], charWords={}, charDefaults={}; const charCards=[];
+const unaccent = t => String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/[^a-z0-9]+/g,' ').trim();
+const charKw = id => charWords[id] ?? charDefaults[id] ?? '';
+const charName = id => String(id||'').startsWith('up:') ? id.slice(3).replace(/\.[^.]+$/,'') : (BUILTIN_CHARS.find(c=>c[0]===id)?.[1]||'');
+function makeCharCard(id, name){
+  const card=document.createElement('div'); card.className='scene';
+  const cv=document.createElement('canvas'); cv.width=180; cv.height=240;
+  const nm=document.createElement('label'); nm.className='cy'; const ck=document.createElement('input'); ck.type='checkbox';
+  ck.onchange=()=>{ const next = ck.checked ? [...charPool, id] : charPool.filter(x=>x!==id);
+    if (!next.length){ ck.checked=true; toast('Cần chọn ít nhất một nhân vật cho người mới vào'); return; }
+    charPool=next; drawChars(); if (send('settings', { settings: readSettings() })) toast('Đã lưu cài đặt'); };
+  nm.append(ck, name);
+  const k=document.createElement('label'); k.className='kw'; k.append('Từ khóa');
+  const kin=document.createElement('input'); kin.maxLength=200; kin.placeholder='(không có)'; k.append(kin);
+  kin.onchange=()=>{ const v=kin.value.split(',').map(w=>w.trim()).filter(Boolean).join(', ');
+    if (v===(charDefaults[id]??'')) delete charWords[id]; else charWords={ ...charWords, [id]: v };
+    drawChars(); if (send('settings', { settings: readSettings() })) toast('Đã lưu từ khóa'); };
+  kin.onkeydown=e=>{ if (e.key==='Enter') kin.blur(); };
+  const n=document.createElement('span'); n.className='n';
+  card.append(cv, nm, k, n);
+  if (id.startsWith('up:')) card.append(delBtn('char', id.slice(3), name));
+  const c={ id, card, ck, cv, n, kin }; drawCharThumb(c); PEOPLE.ready(id).then(()=>drawCharThumb(c)); return c;
+}
+function drawCharThumb(c){
+  const g=c.cv.getContext('2d'); g.fillStyle='#24170e'; g.fillRect(0,0,180,240);
+  const f=PEOPLE.figure(c.id, outfits[0]||'tim', 'stand'); if (!f) return; const h=f.oy-f.top, k=Math.min(210/h, 170/f.c.width);
+  g.drawImage(f.c, 90-f.ox*k, 228-f.oy*k, f.c.width*k, f.c.height*k);
+}
+function syncChars(){
+  if (!charCards.length) for (const [id,name] of BUILTIN_CHARS){ const c=makeCharCard(id,name); charCards.push(c); $('chars').append(c.card); }
+  for (let i=charCards.length-1;i>=0;i--){ const c=charCards[i]; if (c.id.startsWith('up:') && !chars.includes(c.id.slice(3))){ c.card.remove(); charCards.splice(i,1); } }
+  for (const f of chars){ const id='up:'+f; if (charCards.some(c=>c.id===id)) continue; const nm=charName(id), c=makeCharCard(id, nm); charCards.push(c); $('chars').append(c.card); }
+  drawChars();
+}
+// ticked = newcomers get it; under each card how many people in the hall are that character now
+function drawChars(){
+  const count=new Map(); for (const p of people.values()) count.set(p.skin,(count.get(p.skin)||0)+1);
+  for (const c of charCards){ const on=charPool.includes(c.id); c.ck.checked=on; c.card.classList.toggle('on', on);
+    const n=count.get(c.id)||0; c.n.textContent = n ? `${n} người đang dùng` : 'Chưa ai dùng';
+    if (c.kin!==document.activeElement) c.kin.value=charKw(c.id); }
+  // a keyword two characters share: only one of them can get it (the server takes the first) → red border
+  const owner=new Map(), dup=new Set();
+  for (const c of charCards) for (const w of charKw(c.id).split(',')){ const k=unaccent(w); if (!k) continue; if (owner.has(k) && owner.get(k)!==c.id){ dup.add(c.id); dup.add(owner.get(k)); } else owner.set(k, c.id); }
+  for (const c of charCards){ c.kin.classList.toggle('dup', dup.has(c.id)); c.kin.title = dup.has(c.id) ? 'Có từ khóa trùng với nhân vật khác' : ''; }
+  charCards.filter(c=>c.id==='woman').forEach(drawCharThumb);          // follows the first áo dài colour
+}
+$('btnUpChar').onclick=()=>$('upChar').click();
+const prepChar=async f=>({ blob: await PEOPLE.prepareUpload(f), name: (f.name.replace(/\.[^.]*$/,'').trim() || 'nhan-vat')+'.png' });
+$('upChar').onchange=e=>{ upload('char', e.target.files, $('upCharInfo'), name=>{ const id='up:'+name;   // a new picture joins the newcomers at once
+  if (!charPool.includes(id)){ charPool=[...charPool, id]; chars=[...new Set([...chars, name])]; syncChars(); send('settings', { settings: readSettings() }); } }, prepChar); e.target.value=''; };
 
 /* people */
 const people = new Map(); let peopleQueued=false;
-const SKIN = { man:'nam', woman:'nữ', granny:'bà', monk:'sư', nun:'ni', child:'tiểu', master:'cao tăng' };
+const SKIN = { man:'nam', woman:'nữ', lady:'khăn hồng', granny:'bà', monk:'sư', nun:'sư cô', child:'bé', master:'áo xám' };
 function renderPeople(){ if (peopleQueued) return; peopleQueued=true; requestAnimationFrame(()=>{ peopleQueued=false; drawPeople(); }); }
 function drawPeople(){
-  const box=$('people'), q=$('q').value.trim().toLowerCase();
+  drawChars(); const box=$('people'), q=$('q').value.trim().toLowerCase();
   const list=[...people.values()].sort((a,b)=>b.coins-a.coins || a.name.localeCompare(b.name,'vi')).filter(p=>!q || p.name.toLowerCase().includes(q));
   box.replaceChildren();
   if (!list.length){ const e=document.createElement('div'); e.className='empty'; e.textContent= people.size ? 'Không tìm thấy' : 'Chưa có ai'; box.append(e); }
   list.slice(0,300).forEach((p,i)=>{
     const r=document.createElement('div'); r.className='person';
     const rk=document.createElement('span'); rk.className='rk'; rk.textContent=String(i+1).padStart(2,'0');
-    const nm=document.createElement('span'); nm.className='nm'; nm.textContent=p.name; const sk=document.createElement('small'); sk.textContent=(SKIN[p.skin]||'')+(p.id.startsWith('sim_')?' · thử':''); nm.append(sk);
+    const nm=document.createElement('span'); nm.className='nm'; nm.textContent=p.name; const sk=document.createElement('small'); sk.textContent=(SKIN[p.skin]||charName(p.skin))+(p.id.startsWith('sim_')?' · thử':''); nm.append(sk);
     const co=document.createElement('span'); co.className='co'; co.textContent=p.coins? p.coins+' ✧':'';
     const b=document.createElement('button'); b.className='sm danger'; b.textContent='Chặn'; b.title='Mời ra và chặn người này'; b.onclick=()=>{ if (confirm(`Chặn "${p.name}"? Người này sẽ rời chánh điện và bình luận sau đó bị bỏ qua.`)) send('block',{ id:p.id }); };
     r.append(rk,nm,co,b); box.append(r);
@@ -662,10 +786,11 @@ function connect(){
     const m = JSON.parse(e.data);
     switch (m.t){
       case 'state': if (m.version && pageVersion && m.version!==pageVersion){ location.reload(); return; } pageVersion=m.version; $('ver').textContent='Phiên bản '+m.version;
-        sceneAt=m.sceneAt||0; bgs=m.bgs||[]; syncBgCards(); tracks=m.tracks||[]; curTrack=m.track||''; fillSettings(m.settings); setTT(m.tiktok); startedAt=m.startedAt; people.clear(); for (const v of m.viewers) people.set(v.id,v); renderPeople(); break;
+        sceneAt=m.sceneAt||0; bgs=m.bgs||[]; syncBgCards(); chars=m.chars||[]; charDefaults=m.charDefaults||{}; syncChars(); tracks=m.tracks||[]; curTrack=m.track||''; fillSettings(m.settings); setTT(m.tiktok); startedAt=m.startedAt; people.clear(); for (const v of m.viewers) people.set(v.id,v); renderPeople(); break;
       case 'settings': if ('sceneAt' in m) sceneAt=m.sceneAt||0; fillSettings(m.settings); break;
       case 'tracks': tracks=m.tracks; drawTracks(); break;
       case 'bgs': bgs=m.bgs; syncBgCards(); break;
+      case 'chars': chars=m.chars; charDefaults=m.charDefaults||charDefaults; syncChars(); break;
       case 'track': curTrack=m.track; drawTracks(); break;
       case 'logs': logEl.replaceChildren(); m.lines.forEach(logLine); break;
       case 'log': logLine(m.line); break;
